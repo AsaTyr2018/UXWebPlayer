@@ -17,3 +17,13 @@
 **Docs:** Updated `docs/planning/project-plan.md`
 **Rollback Plan:** Revert documentation update commit
 **Refs:** N/A
+
+## [2025-10-10 21:30] Outline optional feature modules
+**Change Type:** Standard Change
+**Why:** Capture optional enhancements that add value during the planning phase
+**What changed:** Documented audio visualization, ambient scenes, and metadata spotlight modules in the project plan
+**Impact:** Documentation only; shapes future feature prioritization without affecting current implementation
+**Testing:** Not applicable (docs-only)
+**Docs:** Updated `docs/planning/project-plan.md`
+**Rollback Plan:** Revert documentation update commit
+**Refs:** N/A
