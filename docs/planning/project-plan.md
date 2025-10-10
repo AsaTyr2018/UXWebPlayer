@@ -50,13 +50,40 @@ Create a lightweight, framework-agnostic multimedia library that can be embedded
 
 ## Technology Stack Evaluation
 
-- **Language & Runtime Choice:** TypeScript remains the most ergonomic path for an embeddable web library. It compiles to standards-compliant JavaScript that runs anywhere, adds static typing for maintainability, and integrates cleanly with both legacy `<script>` embeds and modern module consumers. We avoid framework lock-in while still benefiting from modern tooling (ESNext syntax, decorators, async/await) that down-compiles for older browsers.
-- **Component Model:** Standards-based Web Components (Custom Elements + Shadow DOM) provide encapsulation without imposing a framework dependency on host pages. They coexist with existing CMS themes, can be lazily registered, and expose lifecycle hooks for integrators. Libraries such as Lit could accelerate ergonomics, but staying framework-free keeps bundles smaller and avoids duplicate runtime costs when embedded alongside other frameworks.
-- **Styling Strategy:** CSS custom properties and logical properties allow runtime theming without recompilation. Pairing them with a lightweight design token system ensures admins can override colors, spacing, or typography while preserving accessibility targets. Scoped styles via Shadow DOM reduce conflicts with host site CSS.
-- **Build & Distribution Tooling:** Vite offers fast development workflows and leverages esbuild for dev transforms while outputting Rollup-quality production bundles. Rollup remains an option if we prefer a single toolchain, but Vite's dev-server ergonomics support rapid iteration on UI polish. Both can emit dual builds (UMD + ESM) and TypeScript declarations.
-- **Testing Utilities:** Vitest aligns with Vite and shares transform pipelines, simplifying configuration. Playwright-based smoke tests can validate browser APIs without relying on a full framework harness. Storybook (with Web Components support) remains the preferred environment for visual regression coverage.
-- **Consideration of Emerging Options:** WebAssembly (via Rust or AssemblyScript) is unnecessary for core playback because HTMLMediaElement already delegates decoding to the browser. WASM may be explored later for optional DSP features (e.g., waveform analysis) but adds binary size and complicates hosting. Similarly, SPA frameworks (React, Vue, Svelte) offer developer familiarity yet burden embedders with extra runtimes; they remain viable for auxiliary dashboards rather than the core widget.
-- **Backward Compatibility:** Targeting evergreen browsers with ES2019 output balances modern features and compatibility. For long-tail support, we can ship an ES5 fallback bundle guarded by feature detection, keeping the main bundle lean for modern consumers.
+### Language & Runtime
+- **TypeScript (Adopt):** TypeScript remains the most ergonomic path for an embeddable web library. It compiles to standards-compliant JavaScript that runs anywhere, adds static typing for maintainability, and integrates cleanly with both legacy `<script>` embeds and modern module consumers.
+- **Vanilla JavaScript (Rule Out):** While smallest at runtime, authoring the library in untyped JavaScript would slow down feature development, complicate refactors, and reduce our ability to surface configuration mistakes at build time.
+
+### Component Framework Assessment
+| Option | Verdict | Rationale |
+| --- | --- | --- |
+| **React / Preact** | **Rule Out** | Requires virtual DOM runtime on every embed, increases bundle weight, and clashes with host React versions when multiple copies load. Lacks built-in Shadow DOM support for isolating styles. |
+| **Vue** | **Rule Out** | Similar runtime duplication and version-collision concerns as React. Template compilation step complicates distribution as standalone script. |
+| **Angular** | **Rule Out** | Heavy framework with opinionated module system and dependency injection that bloats bundle size and raises the barrier for integrators. |
+| **Svelte / Solid** | **Rule Out (for core widget)** | Compiled output is lean but still ships a component runtime per embed; hydration expectations and community tooling favor SPA use-cases rather than drop-in widgets. |
+| **Stencil** | **Rule Out** | Generates Web Components but introduces a build-time compiler dependency and slower iteration cycle compared to modern tooling already in use. |
+| **Lit** | **Adopt** | Lightweight (≈5–6 kB gzip), first-class Web Components support, templating ergonomics, and rich ecosystem for accessibility/testing. Works seamlessly with Shadow DOM and allows incremental enhancement without locking in host frameworks. |
+
+**Decision:** Adopt **Lit** for component authoring to deliver a modern, feature-rich framework experience while still compiling to standards-based Web Components for embeddability. Lit provides declarative templating, reactive properties, and accessibility helpers that accelerate UI polish without imposing heavy runtimes on host pages.
+
+### Styling Strategy
+- **CSS Custom Properties & Design Tokens (Adopt):** Enables runtime theming without recompilation. Scoped styles via Shadow DOM reduce conflicts with host site CSS and align with Lit's styling primitives.
+- **Utility-Class Frameworks (Rule Out):** Frameworks like Tailwind introduce build-time dependencies and large generated stylesheets. They also reduce host-site composability, conflicting with the embeddable goal.
+
+### Build & Distribution Tooling
+- **Vite + Rollup (Adopt):** Vite offers fast development workflows and leverages esbuild for dev transforms while outputting Rollup-quality production bundles. Rollup remains in the toolchain for library-mode builds generating dual outputs (UMD + ESM) and TypeScript declarations.
+- **Webpack (Rule Out):** Mature but slower for iterative development; adds configuration complexity without clear benefits over Vite/Rollup for a library-sized project.
+
+### Testing Utilities
+- **Vitest + Playwright + Storybook (Adopt):** Vitest aligns with Vite and shares transform pipelines, simplifying configuration. Playwright-based smoke tests validate browser APIs without relying on a full SPA harness. Storybook (with Lit/Web Components support) remains the preferred environment for visual regression coverage.
+- **Jest (Rule Out):** Powerful but slower in ESM/TypeScript contexts; Vitest covers the same needs with less configuration.
+
+### Platform Considerations
+- **WebAssembly (Rule Out for Core):** HTMLMediaElement already delegates decoding to the browser. WASM adds binary size and complicates hosting, so reserve it for optional DSP features (e.g., waveform analysis) in future modules.
+- **SPA Shell (Rule Out):** A full single-page framework shell (React/Vue/Angular) would burden embedders with duplicate runtimes; keep SPA frameworks for auxiliary dashboards rather than the core widget.
+
+### Backward Compatibility
+- Target evergreen browsers with ES2019 output to balance modern features and compatibility. Ship an ES5 fallback bundle guarded by feature detection to serve long-tail environments while keeping the primary bundle lean.
 
 ## UX Principles
 - **Instant Feedback:** Loaders and progress states for buffering and playlist generation.
