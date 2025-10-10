@@ -48,6 +48,16 @@ Create a lightweight, framework-agnostic multimedia library that can be embedded
    - Visual regression tests via Storybook + Chromatic (optional) for UI components.
    - Accessibility audits with Axe and keyboard navigation scripts.
 
+## Technology Stack Evaluation
+
+- **Language & Runtime Choice:** TypeScript remains the most ergonomic path for an embeddable web library. It compiles to standards-compliant JavaScript that runs anywhere, adds static typing for maintainability, and integrates cleanly with both legacy `<script>` embeds and modern module consumers. We avoid framework lock-in while still benefiting from modern tooling (ESNext syntax, decorators, async/await) that down-compiles for older browsers.
+- **Component Model:** Standards-based Web Components (Custom Elements + Shadow DOM) provide encapsulation without imposing a framework dependency on host pages. They coexist with existing CMS themes, can be lazily registered, and expose lifecycle hooks for integrators. Libraries such as Lit could accelerate ergonomics, but staying framework-free keeps bundles smaller and avoids duplicate runtime costs when embedded alongside other frameworks.
+- **Styling Strategy:** CSS custom properties and logical properties allow runtime theming without recompilation. Pairing them with a lightweight design token system ensures admins can override colors, spacing, or typography while preserving accessibility targets. Scoped styles via Shadow DOM reduce conflicts with host site CSS.
+- **Build & Distribution Tooling:** Vite offers fast development workflows and leverages esbuild for dev transforms while outputting Rollup-quality production bundles. Rollup remains an option if we prefer a single toolchain, but Vite's dev-server ergonomics support rapid iteration on UI polish. Both can emit dual builds (UMD + ESM) and TypeScript declarations.
+- **Testing Utilities:** Vitest aligns with Vite and shares transform pipelines, simplifying configuration. Playwright-based smoke tests can validate browser APIs without relying on a full framework harness. Storybook (with Web Components support) remains the preferred environment for visual regression coverage.
+- **Consideration of Emerging Options:** WebAssembly (via Rust or AssemblyScript) is unnecessary for core playback because HTMLMediaElement already delegates decoding to the browser. WASM may be explored later for optional DSP features (e.g., waveform analysis) but adds binary size and complicates hosting. Similarly, SPA frameworks (React, Vue, Svelte) offer developer familiarity yet burden embedders with extra runtimes; they remain viable for auxiliary dashboards rather than the core widget.
+- **Backward Compatibility:** Targeting evergreen browsers with ES2019 output balances modern features and compatibility. For long-tail support, we can ship an ES5 fallback bundle guarded by feature detection, keeping the main bundle lean for modern consumers.
+
 ## UX Principles
 - **Instant Feedback:** Loaders and progress states for buffering and playlist generation.
 - **Predictable Controls:** Consistent placement of play/pause, skip, volume, and fullscreen toggles.
