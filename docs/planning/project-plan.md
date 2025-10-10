@@ -85,10 +85,39 @@ Create a lightweight, framework-agnostic multimedia library that can be embedded
 - Zero critical accessibility issues flagged by automated audits.
 - Positive admin feedback on content management workflows in quarterly reviews.
 
-## Open Questions
-- Should we bundle optional transcoding service integration for unsupported codecs?
-- What analytics platforms do our target admins prefer (Google Analytics, Matomo, custom)?
-- Do we need DRM considerations for premium content, or is this out of scope?
+## Scope Decisions
+- **Optional transcoding integration:** Provide only minimal hooks so self-hosted or third-party pipelines can drop in assets. Focus core engineering on native playback; target ≥95% coverage with in-house capabilities.
+- **Analytics integration:** Out of scope for the embeddable player. Document event hooks so site admins can forward events to their preferred platforms independently.
+- **DRM considerations:** Out of scope for the core release. Site admins remain responsible for DRM enforcement at the hosting layer.
+
+## Expanded Planning
+
+### Milestone Deliverables
+| Milestone | Key Deliverables | Acceptance Criteria |
+| --- | --- | --- |
+| Foundation | TypeScript project scaffold, audio playback module, base playlist UI, config loader with schema validation. | Audio files in default directories playable on desktop/mobile; config errors reported with actionable messages. |
+| Enhanced Media Support | Video renderer, responsive layout for mixed media, manifest generator CLI with metadata ingestion. | Video assets render alongside audio without layout shifts; CLI outputs manifest and warnings for unsupported files. |
+| UX Polish | Accessibility enhancements, theming presets, keyboard shortcuts, localization pipeline. | Axe audit passes with zero critical issues; admins can switch themes and provide translations without code changes. |
+| Stabilization | CI pipeline, automated tests, documentation set (developer guide, embedding guide), versioned release artifacts. | CI executes lint/test suite; documentation reviewed and linked from README; release bundle validated across target browsers. |
+
+### Operational Guidelines
+- **Configuration lifecycle:** Store `uxplayer.config.json` under version control, with sample profiles for development, staging, and production.
+- **Release cadence:** Target monthly tagged releases until v1.0.0, then adopt semantic versioning with changelog updates per release.
+- **Support policy:** Maintain compatibility with the two latest major versions of Chrome, Firefox, Safari, and Edge. Document fallback experience for legacy browsers.
+
+### Risk & Mitigation Matrix
+| Risk | Likelihood | Impact | Mitigation |
+| --- | --- | --- | --- |
+| Browser codec gaps exceed 5% coverage target. | Medium | High | Provide clear unsupported-format messaging, document self-hosted transcoding workflow, and monitor user reports for format prioritization. |
+| Configuration errors hinder onboarding. | Medium | Medium | Ship schema-based validation with descriptive errors, add CLI `--dry-run` mode, and publish troubleshooting guide. |
+| Accessibility regressions during UX polish phase. | Low | High | Automate axe-core tests in CI and require manual keyboard walkthroughs before release. |
+| Build footprint grows beyond lightweight goals. | Medium | Medium | Track bundle size in CI, enforce size budget thresholds, and prefer native APIs over heavy dependencies. |
+
+### Next Research Tasks
+1. Prototype playlist performance with large manifests (≥500 items) to validate virtualization needs.
+2. Assess feasibility of service worker caching for offline-first scenarios without overcomplicating scope.
+3. Draft theming token catalog covering typography, spacing, and color primitives.
+4. Outline localization file format (JSON vs. ICU messages) and fallback rules.
 
 ## Next Steps
 1. Validate requirements with stakeholders (admins, integrators).
