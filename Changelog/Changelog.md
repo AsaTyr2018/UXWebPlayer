@@ -37,3 +37,13 @@
 **Docs:** Updated `docs/planning/project-plan.md`
 **Rollback Plan:** Revert documentation update commit
 **Refs:** N/A
+
+## [2025-10-10 22:30] Narrow framework selection for player UI
+**Change Type:** Standard Change
+**Why:** Rule out unsuitable frameworks and commit to a modern, feature-rich option for the embeddable player
+**What changed:** Updated the technology stack evaluation with comparative analysis of component frameworks, tooling, and styling strategies; selected Lit as the primary UI framework
+**Impact:** Documentation only; clarifies future implementation choices without code changes
+**Testing:** Not applicable (docs-only)
+**Docs:** Updated `docs/planning/project-plan.md`
+**Rollback Plan:** Revert documentation update commit
+**Refs:** N/A
