@@ -105,6 +105,11 @@ Create a lightweight, framework-agnostic multimedia library that can be embedded
 - **Release cadence:** Target monthly tagged releases until v1.0.0, then adopt semantic versioning with changelog updates per release.
 - **Support policy:** Maintain compatibility with the two latest major versions of Chrome, Firefox, Safari, and Edge. Document fallback experience for legacy browsers.
 
+### Optional Feature Modules
+- **Audio visualization pack:** Ship a lightweight canvas-based waveform and spectrum visualizer that syncs with audio playback for music-only deployments. Expose theme tokens for colors and animation intensity so admins can align visuals with branding.
+- **Dynamic ambient scenes:** Offer optional background animations (e.g., subtle gradients or particle effects) that respond to playback state while respecting accessibility preferences for reduced motion.
+- **Metadata spotlight:** Provide a collapsible panel for extended metadata such as lyrics, liner notes, or podcast show notes, leveraging the existing localization pipeline.
+
 ### Risk & Mitigation Matrix
 | Risk | Likelihood | Impact | Mitigation |
 | --- | --- | --- | --- |
