@@ -48,11 +48,21 @@
 **Rollback Plan:** Revert documentation update commit
 **Refs:** N/A
 ## [2025-10-10 23:00] Scaffold project folder structure
-**Change Type:** Standard Change  
-**Why:** Establish repository layout aligned with the approved architecture roadmap  
-**What changed:** Created source, configuration, media, testing, tooling, and public asset directories with placeholders for future implementation  
-**Impact:** Prepares workspace for upcoming development; no user-facing changes yet  
-**Testing:** Not applicable (repository structure only)  
-**Docs:** N/A (structure only)  
-**Rollback Plan:** Remove newly created directories or revert the associated commit  
+**Change Type:** Standard Change
+**Why:** Establish repository layout aligned with the approved architecture roadmap
+**What changed:** Created source, configuration, media, testing, tooling, and public asset directories with placeholders for future implementation
+**Impact:** Prepares workspace for upcoming development; no user-facing changes yet
+**Testing:** Not applicable (repository structure only)
+**Docs:** N/A (structure only)
+**Rollback Plan:** Remove newly created directories or revert the associated commit
+**Refs:** N/A
+
+## [2025-10-11 00:00] Prioritize admin dashboard and live embedding endpoints
+**Change Type:** Standard Change
+**Why:** Align project plan with new directive for central media administration and dynamic embeds
+**What changed:** Updated project plan vision, goals, requirements, architecture, roadmap, and success metrics to include authenticated admin dashboard, playlist endpoints, and instant propagation expectations
+**Impact:** Documentation only; informs future implementation priorities without altering runtime behavior
+**Testing:** Not applicable (docs-only)
+**Docs:** Updated `docs/planning/project-plan.md`
+**Rollback Plan:** Revert documentation update commit
 **Refs:** N/A

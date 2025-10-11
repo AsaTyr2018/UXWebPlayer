@@ -1,7 +1,7 @@
 # UXWebPlayer Embeddable Multimedia Library – Project Plan
 
 ## Vision
-Create a lightweight, framework-agnostic multimedia library that can be embedded into any HTML or PHP website. The library must feel native in diverse environments, deliver top-tier audio/video playback, and offer an admin-friendly configuration model.
+Create a lightweight, framework-agnostic multimedia library that can be embedded into any HTML or PHP website. The library must feel native in diverse environments, deliver top-tier audio/video playback, and pair with a centralized admin console that curates playlists and embedding endpoints without downtime.
 
 ## Strategic Goals
 1. **Universal format support:** Handle the most common audio (MP3, WAV, FLAC, AAC, OGG) and video (MP4, WebM, MKV, AVI) formats with graceful degradation when a browser lacks codec support.
@@ -9,6 +9,7 @@ Create a lightweight, framework-agnostic multimedia library that can be embedded
 3. **Configurable media sourcing:** Enforce a predictable directory layout (`./music/`, `./video/`, expandable via config) while allowing remote/media-server integration via adapters.
 4. **Delightful UX:** Deliver a modern UI with responsive layout, integrated playlist, and accessible controls compliant with WCAG 2.2 AA.
 5. **Admin productivity:** Supply configuration files, diagnostics, and theming hooks so site maintainers can manage content and branding without diving into code.
+6. **Centralized control:** Deliver a secure dashboard for managing media libraries, playlists, and embeddable endpoints with changes applied instantly to connected embeds.
 
 ## User Profiles
 - **End Users:** Visitors on desktop or mobile devices consuming media via embedded widgets.
@@ -25,6 +26,7 @@ Create a lightweight, framework-agnostic multimedia library that can be embedded
 | Accessibility | Full keyboard navigation, ARIA roles, caption/subtitle support, configurable color contrast. |
 | Embedding | Single `<script>` + `<link>` embed snippet with data attributes, plus modular API for programmatic control. |
 | Admin Tools | Config validator, CLI/Node script for media scanning, optional analytics hook emitting playback events. |
+| Admin Console | Web dashboard with authentication, playlist builder, and endpoint management that publishes changes without service restarts. |
 
 ## Technical Architecture
 1. **Core Runtime**
@@ -34,19 +36,23 @@ Create a lightweight, framework-agnostic multimedia library that can be embedded
 2. **Media Adapters**
    - Local file adapter (default) reads directory manifest generated at build/deploy time.
    - Extensible adapter interface for remote APIs (e.g., REST/GraphQL).
+   - Playlist endpoint adapter surfaces admin-defined collections as embeddable feeds.
 3. **Configuration Layer**
    - `uxplayer.config.json` schema validated on initialization.
    - Supports folder mappings, autoplay rules, theme selection, and feature toggles.
 4. **UI Layer**
    - Web Components for player shell, playlist, and controls to avoid framework lock-in.
    - CSS custom properties for theming; dark/light presets included.
+   - Admin dashboard implemented as a separate web application sharing design tokens and consuming the same API contracts.
 5. **Build & Distribution**
    - Rollup or Vite build pipeline producing minified assets, source maps, and TypeScript declarations.
    - CDN-ready distribution folder (`/dist`) with versioned assets.
+   - Admin dashboard served as SPA bundle with API client for playlist and endpoint management.
 6. **Testing & QA**
    - Unit tests (Vitest/Jest) for playback logic and config parsing.
    - Visual regression tests via Storybook + Chromatic (optional) for UI components.
    - Accessibility audits with Axe and keyboard navigation scripts.
+   - Integration tests covering admin authentication, playlist CRUD, and live endpoint propagation.
 
 ## Technology Stack Evaluation
 
@@ -98,6 +104,9 @@ Create a lightweight, framework-agnostic multimedia library that can be embedded
 - **Monitoring:** Emit events for play, pause, error, and completion; document how to forward to analytics platforms.
 - **Localization:** Support translation files for UI strings, defaulting to English with fallback chain.
 - **Version Control:** Encourage storing configuration and manifests within the hosting repo for traceability.
+- **Secure Access:** Require authenticated login for the admin dashboard with role-based permissions for media editing versus endpoint publication.
+- **Live Endpoint Management:** Allow admins to create, update, and retire embedding endpoints and playlists on demand, ensuring updates propagate instantly without restarting services.
+- **Audit Trail:** Log playlist and endpoint changes for traceability and rollback.
 
 ## Roadmap
 1. **Foundation (Milestone 1)**
@@ -108,11 +117,14 @@ Create a lightweight, framework-agnostic multimedia library that can be embedded
    - Add video playback with responsive layout.
    - Introduce manifest generator CLI and metadata management.
    - Expand format testing matrix and fallback handling.
-3. **UX Polish (Milestone 3)**
-   - Integrate accessibility enhancements, keyboard shortcuts, and customizable themes.
-   - Add admin dashboard template for monitoring and config editing.
+3. **Admin Enablement (Milestone 3)**
+   - Ship authenticated admin dashboard shell with playlist CRUD workflows and endpoint management UI.
+   - Expose REST/GraphQL API for playlist feeds consumed by embeds.
+   - Ensure admin actions publish changes instantly to connected players without requiring restarts.
+4. **UX Polish (Milestone 4)**
+   - Integrate accessibility enhancements, keyboard shortcuts, and customizable themes across player and admin surfaces.
    - Provide analytics hooks and localization support.
-4. **Stabilization (Milestone 4)**
+5. **Stabilization (Milestone 5)**
    - Harden test coverage, add CI pipeline, and prepare versioned release packages.
    - Publish developer SDK docs and migration guides.
 
@@ -121,11 +133,13 @@ Create a lightweight, framework-agnostic multimedia library that can be embedded
 - 95%+ browser compatibility coverage (desktop & mobile) for listed formats.
 - Zero critical accessibility issues flagged by automated audits.
 - Positive admin feedback on content management workflows in quarterly reviews.
+- Admin dashboard publishes playlist and endpoint changes to live embeds in under 2 seconds median.
 
 ## Scope Decisions
 - **Optional transcoding integration:** Provide only minimal hooks so self-hosted or third-party pipelines can drop in assets. Focus core engineering on native playback; target ≥95% coverage with in-house capabilities.
 - **Analytics integration:** Out of scope for the embeddable player. Document event hooks so site admins can forward events to their preferred platforms independently.
 - **DRM considerations:** Out of scope for the core release. Site admins remain responsible for DRM enforcement at the hosting layer.
+- **Manual restarts for config changes:** Out of scope. All playlist and endpoint updates must flow through the admin dashboard and propagate automatically.
 
 ## Expanded Planning
 
@@ -134,6 +148,7 @@ Create a lightweight, framework-agnostic multimedia library that can be embedded
 | --- | --- | --- |
 | Foundation | TypeScript project scaffold, audio playback module, base playlist UI, config loader with schema validation. | Audio files in default directories playable on desktop/mobile; config errors reported with actionable messages. |
 | Enhanced Media Support | Video renderer, responsive layout for mixed media, manifest generator CLI with metadata ingestion. | Video assets render alongside audio without layout shifts; CLI outputs manifest and warnings for unsupported files. |
+| Admin Enablement | Authenticated dashboard shell, playlist CRUD API, live endpoint provisioning workflow. | Admins can sign in, create playlists, and publish embed endpoints that immediately surface in a sample player. |
 | UX Polish | Accessibility enhancements, theming presets, keyboard shortcuts, localization pipeline. | Axe audit passes with zero critical issues; admins can switch themes and provide translations without code changes. |
 | Stabilization | CI pipeline, automated tests, documentation set (developer guide, embedding guide), versioned release artifacts. | CI executes lint/test suite; documentation reviewed and linked from README; release bundle validated across target browsers. |
 
@@ -141,6 +156,7 @@ Create a lightweight, framework-agnostic multimedia library that can be embedded
 - **Configuration lifecycle:** Store `uxplayer.config.json` under version control, with sample profiles for development, staging, and production.
 - **Release cadence:** Target monthly tagged releases until v1.0.0, then adopt semantic versioning with changelog updates per release.
 - **Support policy:** Maintain compatibility with the two latest major versions of Chrome, Firefox, Safari, and Edge. Document fallback experience for legacy browsers.
+- **Admin availability:** Design admin services for zero-downtime deployments; use feature flags or staged rollouts to avoid interrupting active embeds.
 
 ### Optional Feature Modules
 - **Audio visualization pack:** Ship a lightweight canvas-based waveform and spectrum visualizer that syncs with audio playback for music-only deployments. Expose theme tokens for colors and animation intensity so admins can align visuals with branding.
@@ -160,9 +176,11 @@ Create a lightweight, framework-agnostic multimedia library that can be embedded
 2. Assess feasibility of service worker caching for offline-first scenarios without overcomplicating scope.
 3. Draft theming token catalog covering typography, spacing, and color primitives.
 4. Outline localization file format (JSON vs. ICU messages) and fallback rules.
+5. Define API schema for playlist endpoints, including authentication and cache-control strategy.
 
 ## Next Steps
 1. Validate requirements with stakeholders (admins, integrators).
 2. Define detailed technical specifications and config schema.
 3. Prototype core audio player with playlist and collect usability feedback.
 4. Establish repository structure, coding standards, and contribution guidelines.
+5. Validate admin dashboard UX through wireframes focusing on playlist creation and endpoint lifecycle.
