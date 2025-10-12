@@ -19,8 +19,7 @@ The Lit + Vite-based admin dashboard now implements the full navigation shell (D
 
 ```bash
 npm install
-npm run api   # Start the SQLite access control API on http://0.0.0.0:4000
-npm run dev
+npm run dev   # Start the Vite dev server with the embedded access control API
 ```
 
 The dev server hosts `index.html`, which mounts the `<ux-admin-app>` Web Component showcasing the multi-page admin experience. It binds to `0.0.0.0:2222` for container and LAN access.
@@ -35,7 +34,8 @@ Provide runtime data by assigning the `data` property on `<ux-admin-app>` or by 
 - After signing in, use the **Invite user** form to provision additional administrators and retire the default account when ready.
 
 ### Access Control API
-- `npm run api` launches the Express-based access service on `http://0.0.0.0:4000`.
+- The dev server exposes the Express-based access service on `/api` without requiring a separate process.
+- Use `npm run api` when you need the API outside the Vite environment (for example, end-to-end tests or integration with another host).
 - The API issues short-lived bearer tokens and persists admin accounts to SQLite. Each restart recreates the default admin if no other accounts exist.
 - Configure storage and port with environment variables:
 
@@ -65,7 +65,7 @@ Provide runtime data by assigning the `data` property on `<ux-admin-app>` or by 
 npm run dev    # Start the Vite dev server on http://0.0.0.0:2222
 npm run build  # Produce the static admin bundle in dist/admin
 npm run test   # Execute Vitest unit tests
-npm run api    # Run the SQLite-backed access control API locally
+npm run api    # Optional: run the access control API as a standalone service
 ```
 
 Documentation is under construction. Planned topics include player build tooling, embedding examples, and wiring the admin console to live data sources.
