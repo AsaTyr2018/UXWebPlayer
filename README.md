@@ -6,9 +6,10 @@ Embeddable multimedia library designed to deliver audio and video playback insid
 - Modern, accessible player UI with integrated playlist management.
 - Server-backed media library that stores uploads by playlist and media type.
 - In-app metadata editing for tracks and videos, including artist, genre, and descriptive fields.
-- Endpoint management to mint unique embed URLs and connect them to playlists.
+- Endpoint management to mint unique embed URLs, connect them to playlists, and switch embeds on or off instantly.
 - Dedicated `/embed/:slug` player shell so published endpoints never expose the admin console.
 - Embed links mirror the current admin origin so staging and production hosts stay aligned.
+- Public streaming API that delivers playlist metadata and tracks to active embeds.
 
 ## Quick Start
 ```html
@@ -47,7 +48,7 @@ Provide runtime data by assigning the `data` property on `<ux-admin-app>` or by 
 - The API issues short-lived bearer tokens and persists admin accounts to SQLite. Each restart recreates the default admin if no other accounts exist.
 
 ## Embedding an Endpoint Stream
-1. Create or select an endpoint in the admin console to mint a unique slug; embed URLs always use the current origin so staging and production players stay environment-aware.【F:tests/admin/admin-app.test.ts†L184-L215】【F:src/admin/components/admin-app.ts†L2552-L2583】
+1. Create or select an endpoint in the admin console to mint a unique slug; embed URLs always use the current origin so staging and production players stay environment-aware. Activate the endpoint once its playlist is ready so embeds begin streaming immediately.【F:tests/admin/admin-app.test.ts†L184-L280】【F:src/admin/components/admin-app.ts†L1909-L2146】
 2. Publish the playlist you want to expose, then drop an `<iframe>` into your website that points at the embed URL, for example:
    ```html
    <iframe
@@ -58,9 +59,15 @@ Provide runtime data by assigning the `data` property on `<ux-admin-app>` or by 
      style="width: 100%; min-height: 420px; border: 0;"
    ></iframe>
    ```
-3. Optionally load the standalone player bundle if you need to tailor the UI beyond the iframe; the UMD build bootstraps any `<div data-uxplayer>` container and can fetch the stream from the assigned endpoint slug via your integration layer.【F:README.md†L13-L18】【F:src/admin/components/admin-app.ts†L2552-L2583】
+3. Optionally load the standalone player bundle if you need to tailor the UI beyond the iframe; the UMD build bootstraps any `<div data-uxplayer>` container and calls `/api/embed/:slug/stream` to hydrate the playlist for the selected endpoint.【F:README.md†L13-L18】【F:public/assets/scripts/embed-player.js†L1-L214】
 
-The standalone embed served from `/embed/:slug` renders a lightweight player shell without admin navigation. It injects the resolved slug into the page so your integration can hydrate the playlist client without exposing the console chrome.【F:public/embed.html†L1-L22】【F:public/assets/scripts/embed-player.js†L1-L22】
+The standalone embed served from `/embed/:slug` renders a lightweight player shell without admin navigation. It injects the resolved slug into the page, fetches the streaming payload, and plays queued tracks while surfacing clear status messaging for pending or disabled endpoints.【F:public/embed.html†L1-L22】【F:public/assets/scripts/embed-player.js†L1-L214】
+
+### Streaming API
+
+- `GET /api/embed/:slug/stream` returns `{ endpoint, playlist, tracks }` so custom clients can hydrate players with the same payload the embed consumes.【F:src/server/access-control-app.ts†L20-L171】
+- Track `src` URLs point to `/media/<type>/<playlistId>/<filename>`, which Express serves read-only from the media library storage tree.【F:src/server/access-control-app.ts†L20-L171】
+- Endpoints start in `pending` status and must be activated from the admin console before streams are exposed; disable them at any time to pause playback without deleting configuration.【F:src/admin/components/admin-app.ts†L1909-L2146】
 
 ### Media library workflow
 1. Create an empty playlist from the **Playlists** page and choose whether it manages music or video assets.

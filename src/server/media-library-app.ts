@@ -7,6 +7,7 @@ import {
   createPlaylist,
   deleteAsset,
   deletePlaylist,
+  findPlaylistById,
   listAssets,
   listPlaylists,
   updateAsset,
@@ -16,6 +17,16 @@ import {
   type MediaAssetRecord,
   type PlaylistMediaType
 } from './media-library-service.js';
+import {
+  createEndpoint,
+  deleteEndpoint,
+  getEndpointById,
+  listEndpoints,
+  updateEndpoint,
+  EndpointNotFoundError,
+  EndpointValidationError
+} from './endpoint-service.js';
+import type { EndpointStatus } from '../admin/types.js';
 import { assertAuthenticated } from './http-auth.js';
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -31,6 +42,24 @@ const handleLibraryError = (
   }
 
   if (error instanceof LibraryNotFoundError) {
+    response.status(404).json({ message: error.message });
+    return;
+  }
+
+  next(error);
+};
+
+const handleEndpointError = (
+  error: unknown,
+  response: express.Response,
+  next: express.NextFunction
+) => {
+  if (error instanceof EndpointValidationError) {
+    response.status(400).json({ message: error.message });
+    return;
+  }
+
+  if (error instanceof EndpointNotFoundError) {
     response.status(404).json({ message: error.message });
     return;
   }
@@ -60,6 +89,36 @@ const mapAssetToResponse = (asset: MediaAssetRecord) => ({
   originalName: asset.originalName
 });
 
+const mapEndpointToResponse = (endpoint: ReturnType<typeof listEndpoints>[number]) => ({
+  id: endpoint.id,
+  name: endpoint.name,
+  slug: endpoint.slug,
+  playlistId: endpoint.playlistId,
+  status: endpoint.status,
+  lastSync: endpoint.lastSync ?? 'Never',
+  latencyMs: endpoint.latencyMs ?? undefined
+});
+
+const normalizePlaylistId = (value: unknown): string | null => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const assertPlaylistExists = (playlistId: string | null) => {
+  if (!playlistId) {
+    return;
+  }
+
+  const playlist = findPlaylistById(playlistId);
+  if (!playlist) {
+    throw new EndpointValidationError('Assigned playlist not found.');
+  }
+};
+
 export const createMediaLibraryRouter = () => {
   const router = express.Router();
 
@@ -68,7 +127,19 @@ export const createMediaLibraryRouter = () => {
   router.get('/state', (_request, response) => {
     const playlists = listPlaylists();
     const assets = listAssets();
+    const endpoints = listEndpoints();
     const metrics = computeLibraryMetrics();
+
+    const endpointAssignments = new Map<string, number>();
+    for (const endpoint of endpoints) {
+      if (endpoint.playlistId) {
+        const current = endpointAssignments.get(endpoint.playlistId) ?? 0;
+        endpointAssignments.set(endpoint.playlistId, current + 1);
+      }
+    }
+
+    const activeEndpoints = endpoints.filter((endpoint) => endpoint.status === 'operational').length;
+    const endpointsPending = endpoints.filter((endpoint) => endpoint.status === 'pending').length;
 
     response.json({
       metrics: {
@@ -76,8 +147,8 @@ export const createMediaLibraryRouter = () => {
         mediaAssetsNew: metrics.mediaAssetsNew,
         publishedPlaylists: metrics.publishedPlaylists,
         playlistsPending: metrics.playlistsPending,
-        activeEndpoints: 0,
-        endpointsPending: 0,
+        activeEndpoints,
+        endpointsPending,
         playbackErrors: 0,
         errorDelta: 0
       },
@@ -90,8 +161,9 @@ export const createMediaLibraryRouter = () => {
         createdAt: playlist.createdAt,
         owner: 'System',
         itemCount: assets.filter((asset) => asset.playlistId === playlist.id).length,
-        endpointCount: 0
+        endpointCount: endpointAssignments.get(playlist.id) ?? 0
       })),
+      endpoints: endpoints.map(mapEndpointToResponse),
       mediaLibrary: assets.map(mapAssetToResponse)
     });
   });
@@ -149,6 +221,90 @@ export const createMediaLibraryRouter = () => {
       response.status(204).end();
     } catch (error) {
       handleLibraryError(error, response, next);
+    }
+  });
+
+  router.post('/endpoints', (request, response, next) => {
+    try {
+      const { name, playlistId } = request.body ?? {};
+      if (typeof name !== 'string') {
+        throw new EndpointValidationError('Endpoint name is required.');
+      }
+
+      const normalizedPlaylistId = normalizePlaylistId(playlistId);
+      assertPlaylistExists(normalizedPlaylistId);
+
+      const endpoint = createEndpoint({ name, playlistId: normalizedPlaylistId });
+      response.status(201).json({ endpoint: mapEndpointToResponse(endpoint) });
+    } catch (error) {
+      handleEndpointError(error, response, next);
+    }
+  });
+
+  router.patch('/endpoints/:endpointId', (request, response, next) => {
+    try {
+      const { endpointId } = request.params;
+      const existing = getEndpointById(endpointId);
+      if (!existing) {
+        throw new EndpointNotFoundError('Endpoint not found.');
+      }
+
+      const updates: Parameters<typeof updateEndpoint>[1] = {};
+      const { name, playlistId, status } = request.body ?? {};
+
+      if (name !== undefined) {
+        if (typeof name !== 'string') {
+          throw new EndpointValidationError('Endpoint name must be a string.');
+        }
+
+        updates.name = name;
+      }
+
+      if (playlistId !== undefined) {
+        const normalizedPlaylistId = normalizePlaylistId(playlistId);
+        assertPlaylistExists(normalizedPlaylistId);
+        updates.playlistId = normalizedPlaylistId;
+      }
+
+      if (status !== undefined) {
+        if (typeof status !== 'string') {
+          throw new EndpointValidationError('Invalid endpoint status.');
+        }
+
+        const normalizedStatus = status.trim();
+        const allowedStatuses: EndpointStatus[] = ['operational', 'degraded', 'pending', 'disabled'];
+        if (!allowedStatuses.includes(normalizedStatus as EndpointStatus)) {
+          throw new EndpointValidationError('Invalid endpoint status.');
+        }
+
+        if (normalizedStatus === 'operational') {
+          const playlistCandidate =
+            updates.playlistId !== undefined ? updates.playlistId : existing.playlistId;
+
+          if (!playlistCandidate) {
+            throw new EndpointValidationError('Assign a playlist before activating an endpoint.');
+          }
+
+          assertPlaylistExists(playlistCandidate);
+        }
+
+        updates.status = normalizedStatus as EndpointStatus;
+      }
+
+      const endpoint = updateEndpoint(endpointId, updates);
+      response.json({ endpoint: mapEndpointToResponse(endpoint) });
+    } catch (error) {
+      handleEndpointError(error, response, next);
+    }
+  });
+
+  router.delete('/endpoints/:endpointId', (request, response, next) => {
+    try {
+      const { endpointId } = request.params;
+      deleteEndpoint(endpointId);
+      response.status(204).end();
+    } catch (error) {
+      handleEndpointError(error, response, next);
     }
   });
 

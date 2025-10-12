@@ -167,10 +167,20 @@
 **Rollback Plan:** Revert the embed origin alignment commit
 **Refs:** N/A
 
+## [2025-10-14 09:30] Stream playlists through embeds and toggle endpoints
+**Change Type:** Normal Change
+**Why:** Deliver end-to-end playback for published endpoints and give admins runtime control over embed availability
+**What changed:** Added an endpoint store and API routes for listing, creating, updating, and deleting endpoints; exposed a public `/api/embed/:slug/stream` route plus static media delivery; upgraded the embed script and styles to render playable queues; wired the admin console to the new backend with create/edit/delete/status actions; refreshed server and UI tests for streaming scenarios; documented the workflow
+**Impact:** Embeds now stream assigned playlists once endpoints are activated, and admins can disable embeds without deleting configuration; backward compatibility preserved for existing playlists and uploads
+**Testing:** `npm run test`
+**Docs:** README updated with streaming API and activation guidance
+**Rollback Plan:** Revert the streaming feature commits and delete the endpoint datastore and embed player updates
+**Refs:** N/A
+
 ## [2025-10-13 12:00] Implement media library and playlist management
-**Change Type:** Normal Change  
-**Why:** Deliver the end-to-end workflow for curating playlists, uploading media, and editing metadata from the admin console  
-**What changed:** Added an Express media library API with playlist-scoped storage, wired the admin UI for playlist creation, media uploads, metadata editing, and deletion, persisted library state to disk, refreshed tests, and documented the workflow and configuration  
+**Change Type:** Normal Change
+**Why:** Deliver the end-to-end workflow for curating playlists, uploading media, and editing metadata from the admin console
+**What changed:** Added an Express media library API with playlist-scoped storage, wired the admin UI for playlist creation, media uploads, metadata editing, and deletion, persisted library state to disk, refreshed tests, and documented the workflow and configuration
 **Impact:** Admins can manage music and video collections directly in the console; files are stored under `MEDIA_ROOT` and metadata persists across restarts  
 **Testing:** `npm run test`  
 **Docs:** README updated with media workflow and configuration details
