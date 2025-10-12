@@ -298,13 +298,13 @@
 **Refs:** N/A
 
 ## [2025-10-15 11:45] Fade large player artwork into visualization
-**Change Type:** Normal Change  
-**Why:** Deliver the specified five-second cover art reveal before transitioning the large embed to its visualization pane  
-**What changed:** Added artwork storage to the media library service, exposed upload/remove controls in the admin media editor, streamed artwork URLs to embeds, and updated the large player script and styles to fade covers into the visualization placeholder  
-**Impact:** Large player embeds now show uploaded cover art before dimming to the visualization; other variants remain unchanged and tracks without art fall back to the existing placeholder  
-**Testing:** `npm run test`  
-**Docs:** README feature list and media workflow updated  
-**Rollback Plan:** Revert the artwork support commit to restore the previous placeholder behavior and API payload  
+**Change Type:** Normal Change
+**Why:** Deliver the specified five-second cover art reveal before transitioning the large embed to its visualization pane
+**What changed:** Added artwork storage to the media library service, exposed upload/remove controls in the admin media editor, streamed artwork URLs to embeds, and updated the large player script and styles to fade covers into the visualization placeholder
+**Impact:** Large player embeds now show uploaded cover art before dimming to the visualization; other variants remain unchanged and tracks without art fall back to the existing placeholder
+**Testing:** `npm run test`
+**Docs:** README feature list and media workflow updated
+**Rollback Plan:** Revert the artwork support commit to restore the previous placeholder behavior and API payload
 **Refs:** N/A
 
 ## [2025-10-12 22:09] Cover admin visualizer configuration
@@ -319,9 +319,19 @@
 ## [2025-10-13 10:45] Restore visualizer preset catalog
 **Change Type:** Normal Change  
 **Why:** Resolve missing preset data that prevented the dev server and embed player from loading visualizer configurations.  
-**What changed:** Added `public/assets/data/visualizer-presets.json` with twenty-five curated presets grouped by renderer type.  
+**What changed:** Added `src/assets/data/visualizer-presets.json` with twenty-five curated presets grouped by renderer type.
 **Impact:** Dev builds and embeds can load the full visualizer catalog without runtime errors; backward compatible.  
 **Testing:** `npm run build`  
-**Docs:** README already describes the visualizer pack; no updates required.  
-**Rollback Plan:** Delete `public/assets/data/visualizer-presets.json` and revert the changelog entry.  
+**Docs:** README already describes the visualizer pack; no updates required.
+**Rollback Plan:** Delete `src/assets/data/visualizer-presets.json` and revert the changelog entry.
+**Refs:** N/A
+
+## [2025-10-12 22:29] Fix visualizer preset import path
+**Change Type:** Normal Change
+**Why:** Vite blocked importing visualizer presets from the public directory, preventing endpoint visualizer initialization during dev builds.
+**What changed:** Relocated the preset catalog to `src/assets/data/visualizer-presets.json`, added a public symlink for legacy embed access, updated the TypeScript import, and refreshed docs.
+**Impact:** Visualizer presets now load without build warnings while embeds continue reading the same dataset; no backward-compatibility issues.
+**Testing:** `npm run test`
+**Docs:** README updated with the new preset location.
+**Rollback Plan:** Remove the symlink, move the preset file back to `public/assets/data`, and revert the import and documentation updates.
 **Refs:** N/A
