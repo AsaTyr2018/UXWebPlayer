@@ -40,7 +40,7 @@ const loadVisualizerPresets = async () => {
   }
 };
 
-void loadVisualizerPresets();
+const visualizerPresetsReady = loadVisualizerPresets();
 const AudioContextClass = window.AudioContext || window.webkitAudioContext || null;
 
 const clamp = (value, min, max) => {
@@ -1215,17 +1215,37 @@ const renderStandardPlayback = (payload, variant) => {
 
     const visualizerSettings = normalizeVisualizerSettings(payload?.endpoint?.visualizer);
 
-    if (!VISUALIZER_PRESETS.length) {
-      visualizationStage.dataset.state = 'error';
-      visualizationStage.innerHTML =
-        '<span class="visualizer-status">Visualizer presets unavailable.</span>';
-    } else if (!AudioContextClass) {
-      visualizationStage.dataset.state = 'unsupported';
-      visualizationStage.innerHTML =
-        '<span class="visualizer-status">Visualizer requires Web Audio support.</span>';
-    } else {
+    const initializeVisualizer = () => {
+      if (!VISUALIZER_PRESETS.length) {
+        visualizationStage.dataset.state = 'error';
+        visualizationStage.innerHTML =
+          '<span class="visualizer-status">Visualizer presets unavailable.</span>';
+        return;
+      }
+
+      if (!AudioContextClass) {
+        visualizationStage.dataset.state = 'unsupported';
+        visualizationStage.innerHTML =
+          '<span class="visualizer-status">Visualizer requires Web Audio support.</span>';
+        return;
+      }
+
       // eslint-disable-next-line no-new
       new VisualizerManager(visualizationStage, audio, visualizerSettings);
+    };
+
+    if (VISUALIZER_PRESETS.length) {
+      initializeVisualizer();
+    } else {
+      visualizationStage.dataset.state = 'loading';
+      visualizationStage.innerHTML =
+        '<span class="visualizer-status">Loading visualizer presets…</span>';
+
+      visualizerPresetsReady
+        .catch(() => {})
+        .finally(() => {
+          initializeVisualizer();
+        });
     }
 
     const transport = document.createElement('div');

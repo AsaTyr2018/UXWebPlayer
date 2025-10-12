@@ -10,7 +10,7 @@ Embeddable multimedia library designed to deliver audio and video playback insid
 - Configurable player variants (large, medium, small, background audio) selectable per endpoint to match the embed footprint.
 - Large player variant surfaces uploaded cover art for five seconds before blending into the configurable visualization pane so feature walls stay dynamic.【F:public/assets/scripts/embed-player.js†L1-L420】
 - Audio visualization pack ships with 25 presets stored in `src/assets/data/visualizer-presets.json`, optional thirty-second random rotation, and palette/intensity overrides that can be tuned per endpoint.【F:src/assets/data/visualizer-presets.json†L1-L413】【F:public/assets/scripts/embed-player.js†L1-L420】
-- Embed runtime loads visualization presets through standard `fetch` requests so browsers without JSON module support (for example, Safari 16) initialize correctly instead of stalling on the "initializing" placeholder message.【F:public/assets/scripts/embed-player.js†L1-L69】
+- Embed runtime loads visualization presets through standard `fetch` requests so browsers without JSON module support (for example, Safari 16) initialize correctly instead of stalling on the "initializing" placeholder message, and the large embed waits for that catalog to arrive before activating the canvas to avoid false "presets unavailable" errors.【F:public/assets/scripts/embed-player.js†L1-L80】【F:public/assets/scripts/embed-player.js†L1210-L1244】
 - Dedicated `/embed/:slug` player shell so published endpoints never expose the admin console.
 - Embed links mirror the current admin origin so staging and production hosts stay aligned.
 - Public streaming API that delivers playlist metadata and tracks to active embeds.
