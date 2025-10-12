@@ -51,7 +51,8 @@ export type EndpointStatus = 'operational' | 'degraded' | 'pending' | 'disabled'
 export interface AdminEndpoint {
   id: string;
   name: string;
-  target: string;
+  slug: string;
+  playlistId?: string | null;
   status: EndpointStatus;
   lastSync: string;
   latencyMs?: number;

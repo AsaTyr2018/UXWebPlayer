@@ -179,6 +179,47 @@ describe('ux-admin-app', () => {
     expect(heading?.textContent).toContain('Media Library');
   });
 
+  it('uses the current origin when rendering endpoint embed URLs', async () => {
+    const element = document.createElement('ux-admin-app') as any;
+    document.body.appendChild(element);
+
+    await flush(element);
+    await loginAsDefaultAdmin(element);
+
+    const data = createEmptyAdminData();
+    data.endpoints = [
+      {
+        id: 'endpoint-1',
+        name: 'Lobby Display',
+        slug: '123456789',
+        status: 'operational',
+        playlistId: null,
+        lastSync: '2025-01-01T12:00:00Z',
+        latencyMs: 42
+      }
+    ];
+    data.metrics.activeEndpoints = 1;
+
+    element.data = data;
+
+    await flush(element);
+
+    const endpointsNav = element.shadowRoot?.querySelector('[data-page="endpoints"]') as HTMLButtonElement;
+    endpointsNav?.click();
+
+    await flush(element);
+
+    const embedSpan = element.shadowRoot?.querySelector('tbody .embed-url') as HTMLSpanElement | null;
+    expect(embedSpan).toBeTruthy();
+
+    const embedText = embedSpan
+      ? Array.from(embedSpan.childNodes)
+          .map((node) => node.textContent?.trim() ?? '')
+          .find((value) => value.startsWith(window.location.origin))
+      : undefined;
+    expect(embedText).toBe(`${window.location.origin}/embed/123456789`);
+  });
+
   it('renders playlist entries when data is provided', async () => {
     const element = document.createElement('ux-admin-app') as any;
     document.body.appendChild(element);
@@ -203,6 +244,63 @@ describe('ux-admin-app', () => {
 
     const rows = element.shadowRoot?.querySelectorAll('tbody tr');
     expect(rows?.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('creates an endpoint with a generated embed URL', async () => {
+    const element = document.createElement('ux-admin-app') as any;
+    document.body.appendChild(element);
+
+    const data = createEmptyAdminData();
+    data.playlists = [
+      {
+        id: 'pl-assign',
+        name: 'Launch Playlist',
+        status: 'published',
+        updatedAt: '2025-01-01 09:00',
+        owner: 'Team Admin',
+        itemCount: 12,
+        endpointCount: 3
+      }
+    ];
+    element.data = data;
+
+    await flush(element);
+
+    await loginAsDefaultAdmin(element);
+
+    const navButton = element.shadowRoot?.querySelector('[data-page="endpoints"]') as HTMLButtonElement;
+    navButton.click();
+
+    await flush(element);
+
+    const addButton = element.shadowRoot?.querySelector('[data-testid="endpoint-add-button"]') as HTMLButtonElement;
+    addButton.click();
+
+    await flush(element);
+
+    const nameInput = element.shadowRoot?.querySelector('#endpoint-name') as HTMLInputElement;
+    nameInput.value = 'Expo Booth';
+    nameInput.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+
+    const playlistSelect = element.shadowRoot?.querySelector('#endpoint-playlist') as HTMLSelectElement;
+    playlistSelect.value = 'pl-assign';
+    playlistSelect.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+
+    const submitButton = element.shadowRoot?.querySelector('[data-testid="endpoint-form"] button.primary') as HTMLButtonElement;
+    submitButton.click();
+
+    await flush(element);
+
+    const rows = element.shadowRoot?.querySelectorAll('tbody tr');
+    expect(rows?.length).toBe(1);
+
+    const playlistCell = rows?.[0]?.querySelectorAll('td')?.[1]?.textContent?.trim();
+    expect(playlistCell).toBe('Launch Playlist');
+
+    const embedCell = rows?.[0]?.querySelector('.embed-url');
+    const embedText = embedCell?.textContent?.replace('Copy', '').trim();
+    const originPattern = window.location.origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    expect(embedText).toMatch(new RegExp(`^${originPattern}/embed/\\d{9}$`));
   });
 
   it('warns after signing in with the default admin credentials', async () => {
