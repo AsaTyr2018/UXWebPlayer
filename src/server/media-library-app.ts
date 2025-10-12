@@ -29,7 +29,8 @@ import {
 import type { EndpointStatus } from '../admin/types.js';
 import { assertAuthenticated } from './http-auth.js';
 import { getAnalyticsMetrics } from './analytics-service.js';
-import { getBrandingSettings } from './branding-service.js';
+import { getBrandingSettings, updateBrandingSettings } from './branding-service.js';
+import type { BrandingSettings } from '../admin/types.js';
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -170,6 +171,23 @@ export const createMediaLibraryRouter = () => {
       analytics: getAnalyticsMetrics(),
       branding: getBrandingSettings()
     });
+  });
+
+  router.patch('/branding', (request, response, next) => {
+    try {
+      const body = request.body;
+
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        response.status(400).json({ message: 'Branding payload must be an object.' });
+        return;
+      }
+
+      const updates = body as Partial<BrandingSettings>;
+      const branding = updateBrandingSettings(updates);
+      response.json({ branding });
+    } catch (error) {
+      next(error);
+    }
   });
 
   router.post('/playlists', (request, response, next) => {

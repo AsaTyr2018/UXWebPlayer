@@ -1,4 +1,5 @@
 import { LitElement, css, html, nothing } from 'lit';
+import type { PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { createEmptyAdminData } from '../state/empty-admin-data.js';
 import type {
@@ -824,6 +825,32 @@ export class UxAdminApp extends LitElement {
       gap: 12px;
     }
 
+    .branding-form {
+      display: grid;
+      gap: 16px;
+      margin-top: 16px;
+      padding: 20px;
+      border-radius: 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+
+    .branding-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .branding-grid .form-group {
+      margin: 0;
+    }
+
+    .branding-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+
     .playlist-form,
     .media-upload-form,
     .media-edit-form {
@@ -1070,6 +1097,10 @@ export class UxAdminApp extends LitElement {
       .analytics-grid {
         grid-template-columns: 1fr;
       }
+
+      .branding-grid {
+        grid-template-columns: 1fr;
+      }
     }
   `;
 
@@ -1233,6 +1264,36 @@ export class UxAdminApp extends LitElement {
   @state()
   private declare mediaEditPending: boolean;
 
+  @state()
+  private declare brandingFormOpen: boolean;
+
+  @state()
+  private declare brandingFormTheme: AdminData['branding']['theme'];
+
+  @state()
+  private declare brandingFormAccentColor: string;
+
+  @state()
+  private declare brandingFormBackgroundColor: string;
+
+  @state()
+  private declare brandingFormFontFamily: string;
+
+  @state()
+  private declare brandingFormLogo: string;
+
+  @state()
+  private declare brandingFormTokenOverrides: string;
+
+  @state()
+  private declare brandingFormError: string | null;
+
+  @state()
+  private declare brandingFormSuccess: string | null;
+
+  @state()
+  private declare brandingFormSubmitting: boolean;
+
   private endpointCopyTimeout: number | null = null;
 
   constructor() {
@@ -1285,6 +1346,11 @@ export class UxAdminApp extends LitElement {
     this.mediaEditDescription = '';
     this.mediaEditError = null;
     this.mediaEditPending = false;
+    this.brandingFormOpen = false;
+    this.brandingFormSubmitting = false;
+    this.brandingFormError = null;
+    this.brandingFormSuccess = null;
+    this.setBrandingFormFromSettings(this.data.branding);
   }
 
   connectedCallback() {
@@ -1298,6 +1364,13 @@ export class UxAdminApp extends LitElement {
     if (this.endpointCopyTimeout !== null) {
       window.clearTimeout(this.endpointCopyTimeout);
       this.endpointCopyTimeout = null;
+    }
+  }
+
+  protected updated(changedProperties: PropertyValues<this>) {
+    super.updated(changedProperties);
+    if (changedProperties.has('data') && !this.brandingFormOpen) {
+      this.setBrandingFormFromSettings(this.data.branding);
     }
   }
 
@@ -2733,8 +2806,267 @@ export class UxAdminApp extends LitElement {
     `;
   }
 
+  private setBrandingFormFromSettings(settings: AdminData['branding']) {
+    this.brandingFormTheme = settings.theme;
+    this.brandingFormAccentColor = settings.accentColor;
+    this.brandingFormBackgroundColor = settings.backgroundColor;
+    this.brandingFormFontFamily = settings.fontFamily;
+    this.brandingFormLogo = settings.logo ?? '';
+    this.brandingFormTokenOverrides = String(settings.tokenOverrides);
+  }
+
+  private handleBrandingToggle() {
+    if (this.brandingFormOpen) {
+      this.handleBrandingCancel();
+      return;
+    }
+
+    this.brandingFormOpen = true;
+    this.brandingFormError = null;
+    this.brandingFormSuccess = null;
+    this.setBrandingFormFromSettings(this.data.branding);
+  }
+
+  private handleBrandingFieldInput(event: Event) {
+    const target = event.target as HTMLInputElement | HTMLSelectElement | null;
+    if (!target) {
+      return;
+    }
+
+    switch (target.name) {
+      case 'theme':
+        this.brandingFormTheme = target.value as AdminData['branding']['theme'];
+        break;
+      case 'accentColor':
+        this.brandingFormAccentColor = target.value;
+        break;
+      case 'backgroundColor':
+        this.brandingFormBackgroundColor = target.value;
+        break;
+      case 'fontFamily':
+        this.brandingFormFontFamily = target.value;
+        break;
+      case 'logo':
+        this.brandingFormLogo = target.value;
+        break;
+      case 'tokenOverrides':
+        this.brandingFormTokenOverrides = target.value;
+        break;
+      default:
+        break;
+    }
+
+    if (this.brandingFormError) {
+      this.brandingFormError = null;
+    }
+  }
+
+  private handleBrandingCancel() {
+    if (this.brandingFormSubmitting) {
+      return;
+    }
+
+    this.brandingFormOpen = false;
+    this.brandingFormError = null;
+    this.setBrandingFormFromSettings(this.data.branding);
+  }
+
+  private async handleBrandingFormSubmit(event: Event) {
+    event.preventDefault();
+    if (this.brandingFormSubmitting) {
+      return;
+    }
+
+    const accent = this.brandingFormAccentColor.trim();
+    const background = this.brandingFormBackgroundColor.trim();
+    const fontFamily = this.brandingFormFontFamily.trim();
+    const logo = this.brandingFormLogo.trim();
+    const tokenInput = this.brandingFormTokenOverrides.trim();
+
+    if (!/^#[0-9a-fA-F]{6}$/.test(accent)) {
+      this.brandingFormError = 'Accent color must be a 6-digit hex value (e.g. #2563eb).';
+      return;
+    }
+
+    if (!/^#[0-9a-fA-F]{6}$/.test(background)) {
+      this.brandingFormError = 'Background color must be a 6-digit hex value.';
+      return;
+    }
+
+    if (!fontFamily) {
+      this.brandingFormError = 'Font family is required.';
+      return;
+    }
+
+    if (tokenInput.length > 0) {
+      const parsed = Number.parseInt(tokenInput, 10);
+      if (!Number.isFinite(parsed)) {
+        this.brandingFormError = 'Token overrides must be a number.';
+        return;
+      }
+
+      if (parsed < 0) {
+        this.brandingFormError = 'Token overrides must be zero or greater.';
+        return;
+      }
+    }
+
+    this.brandingFormSubmitting = true;
+    this.brandingFormError = null;
+
+    const updates: Partial<AdminData['branding']> = {
+      theme: this.brandingFormTheme,
+      accentColor: accent,
+      backgroundColor: background,
+      fontFamily,
+      logo
+    };
+
+    if (tokenInput.length > 0) {
+      updates.tokenOverrides = Number.parseInt(tokenInput, 10);
+    }
+
+    try {
+      const response = await this.authorizedFetch(`${LIBRARY_API_BASE}/branding`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updates)
+      });
+
+      if (!response.ok) {
+        throw new Error(await this.readApiError(response));
+      }
+
+      const payload = (await response.json()) as { branding?: AdminData['branding'] };
+      const branding = payload.branding ?? this.data.branding;
+      this.data = { ...this.data, branding };
+      this.brandingFormOpen = false;
+      this.brandingFormSuccess = 'Branding settings updated.';
+      this.setBrandingFormFromSettings(branding);
+    } catch (error) {
+      this.brandingFormError = this.getErrorMessage(error, 'Unable to save branding settings.');
+    } finally {
+      this.brandingFormSubmitting = false;
+    }
+  }
+
+  private renderBrandingForm() {
+    const errorId = 'branding-form-error';
+    const describedBy = this.brandingFormError ? errorId : '';
+
+    return html`
+      <form
+        class="branding-form"
+        @submit=${this.handleBrandingFormSubmit}
+        aria-describedby=${describedBy || nothing}
+        novalidate
+      >
+        <div class="branding-grid">
+          <div class="form-group">
+            <label for="branding-theme">Theme</label>
+            <select
+              id="branding-theme"
+              name="theme"
+              .value=${this.brandingFormTheme}
+              @change=${this.handleBrandingFieldInput}
+            >
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="branding-accent">Accent color</label>
+            <input
+              id="branding-accent"
+              name="accentColor"
+              type="text"
+              inputmode="text"
+              pattern="#[0-9a-fA-F]{6}"
+              title="Enter a hex color like #2563eb"
+              .value=${this.brandingFormAccentColor}
+              @input=${this.handleBrandingFieldInput}
+              required
+            />
+            <p class="form-hint">Hex color applied to buttons and key accents.</p>
+          </div>
+          <div class="form-group">
+            <label for="branding-background">Background color</label>
+            <input
+              id="branding-background"
+              name="backgroundColor"
+              type="text"
+              inputmode="text"
+              pattern="#[0-9a-fA-F]{6}"
+              title="Enter a hex color like #0f172a"
+              .value=${this.brandingFormBackgroundColor}
+              @input=${this.handleBrandingFieldInput}
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="branding-font">Font family</label>
+            <input
+              id="branding-font"
+              name="fontFamily"
+              type="text"
+              .value=${this.brandingFormFontFamily}
+              @input=${this.handleBrandingFieldInput}
+              required
+            />
+            <p class="form-hint">Applied to embeds and the admin console shell.</p>
+          </div>
+          <div class="form-group">
+            <label for="branding-logo">Logo URL</label>
+            <input
+              id="branding-logo"
+              name="logo"
+              type="url"
+              placeholder="https://cdn.example.com/logo.svg"
+              .value=${this.brandingFormLogo}
+              @input=${this.handleBrandingFieldInput}
+            />
+            <p class="form-hint">Leave blank to remove the current logo.</p>
+          </div>
+          <div class="form-group">
+            <label for="branding-tokens">Token overrides</label>
+            <input
+              id="branding-tokens"
+              name="tokenOverrides"
+              type="number"
+              min="0"
+              step="1"
+              .value=${this.brandingFormTokenOverrides}
+              @input=${this.handleBrandingFieldInput}
+            />
+            <p class="form-hint">Higher values apply more aggressive custom theme tokens.</p>
+          </div>
+        </div>
+        ${this.brandingFormError
+          ? html`<p class="form-error" id=${errorId} role="alert">${this.brandingFormError}</p>`
+          : nothing}
+        <div class="branding-actions">
+          <button
+            class="secondary"
+            type="button"
+            @click=${this.handleBrandingCancel}
+            ?disabled=${this.brandingFormSubmitting}
+          >
+            Cancel
+          </button>
+          <button class="primary" type="submit" ?disabled=${this.brandingFormSubmitting}>
+            ${this.brandingFormSubmitting ? 'Saving…' : 'Save branding'}
+          </button>
+        </div>
+      </form>
+    `;
+  }
+
   private renderBranding() {
     const branding = this.data.branding;
+    const showSuccess = this.brandingFormSuccess && !this.brandingFormOpen;
     return html`
       <section class="page-panel" aria-label="Branding settings">
         <header>
@@ -2742,16 +3074,23 @@ export class UxAdminApp extends LitElement {
             <h2>Branding</h2>
             <p>Control the appearance of embeds and the admin console.</p>
           </div>
-          <button type="button">Edit theme</button>
+          <button type="button" @click=${this.handleBrandingToggle} ?disabled=${this.brandingFormSubmitting}>
+            ${this.brandingFormOpen ? 'Close editor' : 'Edit theme'}
+          </button>
         </header>
-        <ul class="metadata-list">
-          <li class="metadata-item"><span>Theme</span><span>${branding.theme}</span></li>
-          <li class="metadata-item"><span>Accent color</span><span>${branding.accentColor}</span></li>
-          <li class="metadata-item"><span>Background</span><span>${branding.backgroundColor}</span></li>
-          <li class="metadata-item"><span>Font</span><span>${branding.fontFamily}</span></li>
-          <li class="metadata-item"><span>Token overrides</span><span>${branding.tokenOverrides}</span></li>
-          <li class="metadata-item"><span>Logo</span><span>${branding.logo ?? 'Not configured'}</span></li>
-        </ul>
+        ${showSuccess ? html`<p class="form-success" role="status">${this.brandingFormSuccess}</p>` : nothing}
+        ${this.brandingFormOpen
+          ? this.renderBrandingForm()
+          : html`
+              <ul class="metadata-list">
+                <li class="metadata-item"><span>Theme</span><span>${branding.theme}</span></li>
+                <li class="metadata-item"><span>Accent color</span><span>${branding.accentColor}</span></li>
+                <li class="metadata-item"><span>Background</span><span>${branding.backgroundColor}</span></li>
+                <li class="metadata-item"><span>Font</span><span>${branding.fontFamily}</span></li>
+                <li class="metadata-item"><span>Token overrides</span><span>${branding.tokenOverrides}</span></li>
+                <li class="metadata-item"><span>Logo</span><span>${branding.logo ?? 'Not configured'}</span></li>
+              </ul>
+            `}
       </section>
     `;
   }

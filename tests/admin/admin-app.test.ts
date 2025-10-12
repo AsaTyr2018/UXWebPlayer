@@ -204,6 +204,39 @@ beforeEach(() => {
       return new Response(null, { status: 204 });
     }
 
+    if (url.endsWith('/api/library/branding') && method === 'PATCH') {
+      const body = init?.body ? JSON.parse(init.body as string) : {};
+      const updated = { ...libraryState.branding };
+
+      if (typeof body.theme === 'string') {
+        updated.theme = body.theme.trim() as typeof updated.theme;
+      }
+
+      if (typeof body.accentColor === 'string') {
+        updated.accentColor = body.accentColor.trim();
+      }
+
+      if (typeof body.backgroundColor === 'string') {
+        updated.backgroundColor = body.backgroundColor.trim();
+      }
+
+      if (typeof body.fontFamily === 'string') {
+        updated.fontFamily = body.fontFamily.trim();
+      }
+
+      if (typeof body.logo === 'string') {
+        const trimmed = body.logo.trim();
+        updated.logo = trimmed.length > 0 ? trimmed : undefined;
+      }
+
+      if (typeof body.tokenOverrides === 'number') {
+        updated.tokenOverrides = Math.max(0, Math.round(body.tokenOverrides));
+      }
+
+      libraryState.branding = updated;
+      return createJsonResponse({ branding: updated });
+    }
+
     return createJsonResponse({ message: 'Not found' }, 404);
   });
 
@@ -352,6 +385,84 @@ describe('ux-admin-app', () => {
     expect(values).toContainEqual(['Font', 'Space Grotesk']);
     expect(values).toContainEqual(['Token overrides', '4']);
     expect(values).toContainEqual(['Logo', 'https://cdn.example.com/logo.svg']);
+  });
+
+  it('updates branding settings through the API and refreshes the summary', async () => {
+    const element = document.createElement('ux-admin-app');
+    document.body.appendChild(element);
+
+    await flush(element);
+    await loginAsDefaultAdmin(element);
+    await renderBrandingPage(element as any);
+
+    const editButton = element.shadowRoot?.querySelector('section.page-panel header button') as HTMLButtonElement;
+    editButton?.click();
+
+    await flush(element);
+
+    const themeSelect = element.shadowRoot?.querySelector('#branding-theme') as HTMLSelectElement;
+    themeSelect.value = 'dark';
+    themeSelect.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+
+    const accentInput = element.shadowRoot?.querySelector('#branding-accent') as HTMLInputElement;
+    accentInput.value = '#1f2937';
+    accentInput.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+
+    const backgroundInput = element.shadowRoot?.querySelector('#branding-background') as HTMLInputElement;
+    backgroundInput.value = '#0f172a';
+    backgroundInput.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+
+    const fontInput = element.shadowRoot?.querySelector('#branding-font') as HTMLInputElement;
+    fontInput.value = 'IBM Plex Sans';
+    fontInput.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+
+    const logoInput = element.shadowRoot?.querySelector('#branding-logo') as HTMLInputElement;
+    logoInput.value = ' https://cdn.example.com/refresh.svg ';
+    logoInput.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+
+    const tokensInput = element.shadowRoot?.querySelector('#branding-tokens') as HTMLInputElement;
+    tokensInput.value = '5';
+    tokensInput.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+
+    const submitButton = element.shadowRoot?.querySelector('.branding-actions .primary') as HTMLButtonElement;
+    submitButton.click();
+
+    await flush(element);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await flush(element);
+
+    const brandingCall = fetchMock.mock.calls.find((call) => {
+      const [input] = call;
+      return typeof input === 'string' && input.endsWith('/api/library/branding');
+    });
+
+    expect(brandingCall).toBeTruthy();
+    const requestInit = brandingCall?.[1];
+    expect(requestInit).toBeTruthy();
+    const payload = requestInit && requestInit.body ? JSON.parse(requestInit.body as string) : null;
+    expect(payload).toMatchObject({
+      theme: 'dark',
+      accentColor: '#1f2937',
+      backgroundColor: '#0f172a',
+      fontFamily: 'IBM Plex Sans',
+      logo: 'https://cdn.example.com/refresh.svg',
+      tokenOverrides: 5
+    });
+
+    const successMessage = element.shadowRoot?.querySelector('.form-success');
+    expect(successMessage?.textContent).toMatch(/Branding settings updated/);
+
+    const listItems = element.shadowRoot?.querySelectorAll('.metadata-item');
+    const values = Array.from(listItems ?? []).map((item) =>
+      Array.from(item.querySelectorAll('span')).map((span) => span.textContent?.trim())
+    );
+
+    expect(values).toContainEqual(['Theme', 'dark']);
+    expect(values).toContainEqual(['Accent color', '#1f2937']);
+    expect(values).toContainEqual(['Background', '#0f172a']);
+    expect(values).toContainEqual(['Font', 'IBM Plex Sans']);
+    expect(values).toContainEqual(['Token overrides', '5']);
+    expect(values).toContainEqual(['Logo', 'https://cdn.example.com/refresh.svg']);
   });
 
   it('shows an empty publishing queue message without playlists', async () => {
