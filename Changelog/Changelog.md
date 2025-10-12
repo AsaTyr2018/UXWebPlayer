@@ -216,3 +216,13 @@
 **Docs:** README updated with embed shell details  
 **Rollback Plan:** Revert the embed shell commit and remove the new public assets  
 **Refs:** N/A
+
+## [2025-10-12 17:24] Persist analytics and branding state
+**Change Type:** Normal Change  
+**Why:** Populate the Analytics and Branding admin pages with durable server-backed data  
+**What changed:** Added analytics and branding services with JSON stores, extended the media library API payload, surfaced metrics and theme values in the admin app, and introduced Vitest coverage for the new services and UI rendering  
+**Impact:** Admin operators see pre-populated analytics metrics and persisted branding settings; new env vars allow overriding data store paths without breaking existing flows  
+**Testing:** `npm run test`  
+**Docs:** README updated with analytics/branding storage details and new configuration variables  
+**Rollback Plan:** Revert analytics/branding service commits and remove related README and test updates  
+**Refs:** N/A

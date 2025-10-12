@@ -10,6 +10,7 @@ Embeddable multimedia library designed to deliver audio and video playback insid
 - Dedicated `/embed/:slug` player shell so published endpoints never expose the admin console.
 - Embed links mirror the current admin origin so staging and production hosts stay aligned.
 - Public streaming API that delivers playlist metadata and tracks to active embeds.
+- Persisted analytics metrics and branding themes so the admin console reflects playback health and appearance settings across sessions.
 
 ## Quick Start
 ```html
@@ -32,6 +33,8 @@ npm run dev   # Start the Vite dev server with the embedded access control API
 ```
 
 The dev server hosts `index.html`, which mounts the `<ux-admin-app>` Web Component showcasing the multi-page admin experience. It binds to `0.0.0.0:2222` for container and LAN access.
+
+Analytics metrics are stored in `data/analytics.json` (override with `ANALYTICS_DB_PATH`) and branding preferences live in `data/branding.json` (override with `BRANDING_DB_PATH`). Both stores are created automatically with sensible defaults and can be edited through future admin workflows or scripts.【F:src/server/analytics-service.ts†L5-L116】【F:src/server/branding-service.ts†L5-L123】
 
 ### Data bootstrapping
 Provide runtime data by assigning the `data` property on `<ux-admin-app>` or by defining `window.__UX_ADMIN_DATA__` before the component upgrades. The structure must match `AdminData` in [`src/admin/types.ts`](src/admin/types.ts). When no data is provided the UI surfaces zeroed metrics and guidance for connecting the live admin API.【F:README.md†L29-L33】【F:src/admin/state/empty-admin-data.ts†L1-L28】
@@ -83,6 +86,8 @@ Uploads are stored under `MEDIA_ROOT/music/<playlistId>` or `MEDIA_ROOT/video/<p
 | `ADMIN_DB_PATH` | `data/admin.sqlite` | SQLite database for admin accounts (`:memory:` supported for tests). |
 | `MEDIA_ROOT` | `media` | Root directory where playlist folders (`music/<playlistId>` and `video/<playlistId>`) are created. |
 | `MEDIA_LIBRARY_DB_PATH` | `data/media-library.json` | JSON datastore that tracks playlists, assets, and metadata. |
+| `ANALYTICS_DB_PATH` | `data/analytics.json` | JSON datastore for persisted analytics metrics surfaced on the Analytics page. |
+| `BRANDING_DB_PATH` | `data/branding.json` | JSON datastore for branding settings applied across embeds and the admin console. |
 
 ## Documentation
 - Planning overview: [`docs/planning/project-plan.md`](docs/planning/project-plan.md)
