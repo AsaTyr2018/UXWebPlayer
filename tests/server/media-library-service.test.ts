@@ -86,6 +86,39 @@ describe('media-library-service', () => {
     expect(storedAssets.length).toBe(2);
     expect(readMediaFile(playlist.id, firstAsset.filename, playlist.type)).toBe('first-track');
     expect(readMediaFile(playlist.id, secondAsset.filename, playlist.type)).toBe('second-track');
+    expect(firstAsset.artworkFilename).toBeNull();
+  });
+
+  it('stores and removes artwork files for an asset', () => {
+    const playlist = mediaService.createPlaylist({ name: 'Artwork', type: 'music' });
+    const [asset] = mediaService.createAssets({
+      playlistId: playlist.id,
+      files: [
+        {
+          buffer: Buffer.from('artwork-audio'),
+          originalName: 'artwork.mp3',
+          mimeType: 'audio/mpeg',
+          size: 1234
+        }
+      ]
+    });
+
+    const imageBuffer = Buffer.from('fake-image-bytes');
+    const updated = mediaService.updateAssetArtwork(asset.id, {
+      buffer: imageBuffer,
+      mimeType: 'image/png',
+      originalName: 'cover.png',
+      size: imageBuffer.length
+    });
+
+    expect(updated.artworkFilename).toMatch(/\.png$/);
+
+    const artworkPath = path.join(customMediaRoot, 'artwork', playlist.id, updated.artworkFilename ?? '');
+    expect(fs.existsSync(artworkPath)).toBe(true);
+
+    const cleared = mediaService.removeAssetArtwork(asset.id);
+    expect(cleared.artworkFilename).toBeNull();
+    expect(fs.existsSync(artworkPath)).toBe(false);
   });
 
   it('updates asset metadata with trimmed values', () => {

@@ -986,6 +986,39 @@ export class UxAdminApp extends LitElement {
       border-top: none;
     }
 
+    .media-artwork-group .media-artwork-preview {
+      margin-top: 8px;
+      width: 160px;
+      aspect-ratio: 1 / 1;
+      border-radius: 12px;
+      border: 1px dashed var(--border);
+      display: grid;
+      place-items: center;
+      background: var(--surface-alt);
+      color: var(--text-muted);
+      overflow: hidden;
+      font-size: 13px;
+    }
+
+    .media-artwork-group .media-artwork-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .media-artwork-controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .media-artwork-controls input[type='file'] {
+      flex: 1;
+    }
+
     .media-empty {
       padding: 24px;
       background: var(--surface);
@@ -1427,6 +1460,12 @@ export class UxAdminApp extends LitElement {
   private declare mediaEditPending: boolean;
 
   @state()
+  private declare mediaEditArtworkUrl: string | null;
+
+  @state()
+  private declare mediaEditArtworkPending: boolean;
+
+  @state()
   private declare brandingFormOpen: boolean;
 
   @state()
@@ -1509,6 +1548,8 @@ export class UxAdminApp extends LitElement {
     this.mediaEditDescription = '';
     this.mediaEditError = null;
     this.mediaEditPending = false;
+    this.mediaEditArtworkUrl = null;
+    this.mediaEditArtworkPending = false;
     this.brandingFormOpen = false;
     this.brandingFormSubmitting = false;
     this.brandingFormError = null;
@@ -2026,6 +2067,37 @@ export class UxAdminApp extends LitElement {
               .value=${this.mediaEditDescription}
               @input=${this.handleMediaEditInput}
             ></textarea>
+          </div>
+          <div class="form-group media-artwork-group">
+            <label for="media-edit-artwork">Artwork</label>
+            <div class="media-artwork-preview">
+              ${this.mediaEditArtworkUrl
+                ? html`<img src=${this.mediaEditArtworkUrl} alt="Album artwork preview" />`
+                : html`<span>No artwork uploaded.</span>`}
+            </div>
+            <div class="media-artwork-controls">
+              <input
+                id="media-edit-artwork"
+                name="artwork"
+                type="file"
+                accept="image/*"
+                @change=${this.handleMediaEditArtworkChange}
+                ?disabled=${this.mediaEditArtworkPending}
+              />
+              ${this.mediaEditArtworkUrl
+                ? html`<button
+                    type="button"
+                    class="link danger"
+                    @click=${this.handleMediaEditArtworkRemove}
+                    ?disabled=${this.mediaEditArtworkPending}
+                  >
+                    Remove artwork
+                  </button>`
+                : nothing}
+            </div>
+            <p class="form-hint">
+              JPEG, PNG, GIF, or WebP up to 5 MB. Covers appear in the large player before fading into the visualization.
+            </p>
           </div>
         </div>
         ${this.mediaEditError
@@ -2760,6 +2832,8 @@ export class UxAdminApp extends LitElement {
     this.mediaEditYear = asset.year ?? '';
     this.mediaEditDescription = asset.description ?? '';
     this.mediaEditError = null;
+    this.mediaEditArtworkUrl = asset.artworkUrl ?? null;
+    this.mediaEditArtworkPending = false;
   }
 
   private closeMediaEditor() {
@@ -2772,6 +2846,8 @@ export class UxAdminApp extends LitElement {
     this.mediaEditDescription = '';
     this.mediaEditError = null;
     this.mediaEditPending = false;
+    this.mediaEditArtworkUrl = null;
+    this.mediaEditArtworkPending = false;
   }
 
   private handleMediaEditInput(event: Event) {
@@ -2805,6 +2881,83 @@ export class UxAdminApp extends LitElement {
 
     if (this.mediaEditError) {
       this.mediaEditError = null;
+    }
+  }
+
+  private async handleMediaEditArtworkChange(event: Event) {
+    const target = event.target as HTMLInputElement | null;
+    if (!target || !this.mediaEditAssetId) {
+      return;
+    }
+
+    const file = target.files?.[0] ?? null;
+    target.value = '';
+
+    if (!file) {
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      this.mediaEditError = 'Artwork must be 5 MB or smaller.';
+      return;
+    }
+
+    this.mediaEditArtworkPending = true;
+    this.mediaEditError = null;
+
+    try {
+      const formData = new FormData();
+      formData.append('artwork', file);
+
+      const response = await this.authorizedFetch(
+        `${LIBRARY_API_BASE}/assets/${this.mediaEditAssetId}/artwork`,
+        {
+          method: 'POST',
+          body: formData
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(await this.readApiError(response));
+      }
+
+      await this.refreshLibraryState({ showLoading: false });
+      const nextAsset = this.data.mediaLibrary.find((item) => item.id === this.mediaEditAssetId);
+      this.mediaEditArtworkUrl = nextAsset?.artworkUrl ?? null;
+    } catch (error) {
+      this.mediaEditError = this.getErrorMessage(error, 'Unable to upload artwork.');
+    } finally {
+      this.mediaEditArtworkPending = false;
+    }
+  }
+
+  private async handleMediaEditArtworkRemove() {
+    if (!this.mediaEditAssetId) {
+      return;
+    }
+
+    this.mediaEditArtworkPending = true;
+    this.mediaEditError = null;
+
+    try {
+      const response = await this.authorizedFetch(
+        `${LIBRARY_API_BASE}/assets/${this.mediaEditAssetId}/artwork`,
+        {
+          method: 'DELETE'
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(await this.readApiError(response));
+      }
+
+      await this.refreshLibraryState({ showLoading: false });
+      const nextAsset = this.data.mediaLibrary.find((item) => item.id === this.mediaEditAssetId);
+      this.mediaEditArtworkUrl = nextAsset?.artworkUrl ?? null;
+    } catch (error) {
+      this.mediaEditError = this.getErrorMessage(error, 'Unable to remove artwork.');
+    } finally {
+      this.mediaEditArtworkPending = false;
     }
   }
 

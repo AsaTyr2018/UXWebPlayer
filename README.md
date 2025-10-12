@@ -8,6 +8,7 @@ Embeddable multimedia library designed to deliver audio and video playback insid
 - In-app metadata editing for tracks and videos, including artist, genre, and descriptive fields.
 - Endpoint management to mint unique embed URLs, connect them to playlists, and switch embeds on or off instantly.
 - Configurable player variants (large, medium, small, background audio) selectable per endpoint to match the embed footprint.
+- Large player variant surfaces uploaded cover art for five seconds before blending into the visualization pane so feature walls stay dynamic.
 - Dedicated `/embed/:slug` player shell so published endpoints never expose the admin console.
 - Embed links mirror the current admin origin so staging and production hosts stay aligned.
 - Public streaming API that delivers playlist metadata and tracks to active embeds.
@@ -90,7 +91,7 @@ Each endpoint stores a `playerVariant` so operators can choose the embed footpri
 ### Media library workflow
 1. Create an empty playlist from the **Playlists** page and choose whether it manages music or video assets.
 2. Open the **Media Library**, upload one or more files through the multi-select form, and assign them to a playlist.
-3. Edit titles, artist details, genres, and descriptions inline; delete assets when they are no longer needed.
+3. Edit titles, artist details, genres, descriptions, and upload dedicated cover artwork inline; delete assets when they are no longer needed.
 
 Uploads are stored under `MEDIA_ROOT/music/<playlistId>` or `MEDIA_ROOT/video/<playlistId>` depending on the playlist type, and metadata persists in `MEDIA_LIBRARY_DB_PATH`.
 

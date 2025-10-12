@@ -11,6 +11,9 @@ import {
   listAssets,
   listPlaylists,
   updateAsset,
+  assetArtworkUrl,
+  updateAssetArtwork,
+  removeAssetArtwork,
   updatePlaylist,
   LibraryNotFoundError,
   LibraryValidationError,
@@ -94,7 +97,8 @@ const mapAssetToResponse = (asset: MediaAssetRecord) => ({
   year: asset.year ?? '',
   description: asset.description ?? '',
   size: asset.size,
-  originalName: asset.originalName
+  originalName: asset.originalName,
+  artworkUrl: assetArtworkUrl(asset)
 });
 
 const mapEndpointToResponse = (endpoint: ReturnType<typeof listEndpoints>[number]) => ({
@@ -392,6 +396,42 @@ export const createMediaLibraryRouter = () => {
     try {
       const { assetId } = request.params;
       const asset = updateAsset(assetId, request.body ?? {});
+      response.json({ asset: mapAssetToResponse(asset) });
+    } catch (error) {
+      handleLibraryError(error, response, next);
+    }
+  });
+
+  router.post(
+    '/assets/:assetId/artwork',
+    upload.single('artwork'),
+    (request, response, next) => {
+      try {
+        const { assetId } = request.params;
+        const file = request.file;
+        if (!file) {
+          response.status(400).json({ message: 'Artwork file is required.' });
+          return;
+        }
+
+        const asset = updateAssetArtwork(assetId, {
+          buffer: file.buffer,
+          mimeType: file.mimetype,
+          originalName: file.originalname,
+          size: file.size
+        });
+
+        response.json({ asset: mapAssetToResponse(asset) });
+      } catch (error) {
+        handleLibraryError(error, response, next);
+      }
+    }
+  );
+
+  router.delete('/assets/:assetId/artwork', (request, response, next) => {
+    try {
+      const { assetId } = request.params;
+      const asset = removeAssetArtwork(assetId);
       response.json({ asset: mapAssetToResponse(asset) });
     } catch (error) {
       handleLibraryError(error, response, next);
