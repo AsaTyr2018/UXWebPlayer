@@ -672,7 +672,7 @@ describe('ux-admin-app', () => {
     variantSelect.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
 
     const visualizerSelect = element.shadowRoot?.querySelector('#endpoint-visualizer') as HTMLSelectElement;
-    visualizerSelect.value = 'bars-midnight';
+    visualizerSelect.value = 'bars-nightfall';
     visualizerSelect.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
 
     const submitButton = element.shadowRoot?.querySelector('[data-testid="endpoint-form"] button.primary') as HTMLButtonElement;
@@ -692,7 +692,7 @@ describe('ux-admin-app', () => {
     expect(variantLabel).toBe('Small player');
 
     expect(state.endpoints[0]?.playerVariant).toBe('small');
-    expect(state.endpoints[0]?.visualizer.mode).toBe('bars-midnight');
+    expect(state.endpoints[0]?.visualizer.mode).toBe('bars-nightfall');
 
     const defaults = createVisualizerSettings();
     expect(state.endpoints[0]?.visualizer.randomizeIntervalSeconds).toBe(defaults.randomizeIntervalSeconds);
@@ -786,7 +786,7 @@ describe('ux-admin-app', () => {
         status: 'operational',
         playlistId: 'pl-edit',
         playerVariant: 'medium',
-        visualizer: createVisualizerSettings({ mode: 'bars-mirage' }),
+        visualizer: createVisualizerSettings({ mode: 'bars-aurora' }),
         lastSync: '2025-01-05T10:00:00Z',
         latencyMs: undefined
       }
@@ -811,7 +811,7 @@ describe('ux-admin-app', () => {
     expect(variantSelect.value).toBe('medium');
 
     const visualizerSelect = element.shadowRoot?.querySelector('#endpoint-visualizer') as HTMLSelectElement;
-    expect(visualizerSelect.value).toBe('bars-mirage');
+    expect(visualizerSelect.value).toBe('bars-aurora');
 
     variantSelect.value = 'large';
     variantSelect.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
@@ -848,7 +848,7 @@ describe('ux-admin-app', () => {
         status: 'operational',
         playlistId: null,
         playerVariant: 'Large' as any,
-        visualizer: createVisualizerSettings({ mode: 'bars-midnight' }),
+        visualizer: createVisualizerSettings({ mode: 'bars-nightfall' }),
         lastSync: '2025-01-03T10:00:00Z',
         latencyMs: undefined
       }
@@ -876,7 +876,7 @@ describe('ux-admin-app', () => {
     expect(variantSelect.value).toBe('large');
 
     const visualizerSelect = element.shadowRoot?.querySelector('#endpoint-visualizer') as HTMLSelectElement;
-    expect(visualizerSelect.value).toBe('bars-midnight');
+    expect(visualizerSelect.value).toBe('bars-nightfall');
   });
 
   it('allows configuring random visualizer rotation intervals', async () => {

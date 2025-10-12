@@ -1,4 +1,4 @@
-import presetsJson from '../../public/assets/data/visualizer-presets.json' assert { type: 'json' };
+import presetsJson from '../assets/data/visualizer-presets.json' assert { type: 'json' };
 
 export type VisualizerRendererType = 'bars' | 'waveform' | 'radial' | 'grid' | 'dots';
 
