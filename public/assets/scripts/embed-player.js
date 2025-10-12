@@ -194,6 +194,10 @@ const renderStandardPlayback = (payload, variant) => {
 
   const tracks = Array.isArray(payload.tracks) ? payload.tracks : [];
   let currentIndex = 0;
+  let visualizationContainer = null;
+  let artworkImage = null;
+  let visualizationStage = null;
+  let artworkFadeTimeoutId = 0;
 
   const updateActiveTrack = () => {
     const items = list.querySelectorAll('li');
@@ -206,6 +210,48 @@ const renderStandardPlayback = (payload, variant) => {
     return track.artist ? `${track.title} — ${track.artist}` : track.title;
   };
 
+  const clearArtworkFade = () => {
+    if (artworkFadeTimeoutId) {
+      window.clearTimeout(artworkFadeTimeoutId);
+      artworkFadeTimeoutId = 0;
+    }
+  };
+
+  const updateVisualizationArtwork = (track) => {
+    if (!visualizationContainer || !visualizationStage) {
+      return;
+    }
+
+    clearArtworkFade();
+
+    const hasArtwork = typeof track.artworkUrl === 'string' && track.artworkUrl.length > 0;
+
+    if (!hasArtwork) {
+      if (artworkImage) {
+        artworkImage.removeAttribute('src');
+        artworkImage.alt = '';
+      }
+
+      visualizationContainer.classList.remove('has-artwork', 'show-artwork', 'artwork-faded');
+      return;
+    }
+
+    visualizationContainer.classList.add('has-artwork');
+    visualizationContainer.classList.remove('artwork-faded');
+
+    if (artworkImage) {
+      artworkImage.src = track.artworkUrl;
+      artworkImage.alt = track.title ? `Cover art for ${track.title}` : 'Cover art';
+    }
+
+    requestAnimationFrame(() => {
+      visualizationContainer.classList.add('show-artwork');
+      artworkFadeTimeoutId = window.setTimeout(() => {
+        visualizationContainer.classList.add('artwork-faded');
+      }, 5000);
+    });
+  };
+
   const setTrack = (index) => {
     currentIndex = index;
     const track = tracks[currentIndex];
@@ -214,6 +260,7 @@ const renderStandardPlayback = (payload, variant) => {
     audio.setAttribute('data-track-index', String(currentIndex));
     nowPlayingTrack.textContent = formatTrackLabel(track);
     updateActiveTrack();
+    updateVisualizationArtwork(track);
   };
 
   const tryPlay = () => {
@@ -259,9 +306,24 @@ const renderStandardPlayback = (payload, variant) => {
     playlistColumn.className = 'player-large-playlist';
     playlistColumn.appendChild(list);
 
-    const visualization = document.createElement('div');
-    visualization.className = 'player-visualization-placeholder';
-    visualization.innerHTML = '<span aria-hidden="true">Visualization coming soon</span>';
+    visualizationContainer = document.createElement('div');
+    visualizationContainer.className = 'player-visualization';
+
+    const artworkWrapper = document.createElement('div');
+    artworkWrapper.className = 'player-artwork';
+
+    artworkImage = document.createElement('img');
+    artworkImage.alt = '';
+    artworkImage.decoding = 'async';
+    artworkImage.loading = 'eager';
+    artworkWrapper.appendChild(artworkImage);
+
+    visualizationStage = document.createElement('div');
+    visualizationStage.className = 'player-visualization-stage';
+    visualizationStage.dataset.state = 'placeholder';
+    visualizationStage.innerHTML = '<span aria-hidden="true">Visualization coming soon</span>';
+
+    visualizationContainer.append(artworkWrapper, visualizationStage);
 
     const transport = document.createElement('div');
     transport.className = 'player-transport';
@@ -269,7 +331,7 @@ const renderStandardPlayback = (payload, variant) => {
 
     const rightColumn = document.createElement('div');
     rightColumn.className = 'player-large-right';
-    rightColumn.append(visualization, transport);
+    rightColumn.append(visualizationContainer, transport);
 
     playbackSection.append(playlistColumn, rightColumn);
   } else {

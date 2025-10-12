@@ -296,3 +296,13 @@
 **Docs:** N/A (existing guidance still accurate)
 **Rollback Plan:** Revert this commit
 **Refs:** N/A
+
+## [2025-10-15 11:45] Fade large player artwork into visualization
+**Change Type:** Normal Change  
+**Why:** Deliver the specified five-second cover art reveal before transitioning the large embed to its visualization pane  
+**What changed:** Added artwork storage to the media library service, exposed upload/remove controls in the admin media editor, streamed artwork URLs to embeds, and updated the large player script and styles to fade covers into the visualization placeholder  
+**Impact:** Large player embeds now show uploaded cover art before dimming to the visualization; other variants remain unchanged and tracks without art fall back to the existing placeholder  
+**Testing:** `npm run test`  
+**Docs:** README feature list and media workflow updated  
+**Rollback Plan:** Revert the artwork support commit to restore the previous placeholder behavior and API payload  
+**Refs:** N/A

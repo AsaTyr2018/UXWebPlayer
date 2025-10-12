@@ -80,7 +80,8 @@ describe('embed endpoints', () => {
     expect(response.body.tracks).toHaveLength(1);
     expect(response.body.tracks[0]).toMatchObject({
       title: 'warmup',
-      mimeType: 'audio/mpeg'
+      mimeType: 'audio/mpeg',
+      artworkUrl: null
     });
     expect(response.body.tracks[0].src).toMatch(/\/media\/music\//);
   });

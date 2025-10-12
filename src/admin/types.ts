@@ -44,6 +44,7 @@ export interface MediaAsset {
   description?: string;
   size?: number;
   originalName?: string;
+  artworkUrl?: string | null;
 }
 
 export type PlaylistStatus = 'draft' | 'published' | 'scheduled' | 'needs_media' | 'archived';

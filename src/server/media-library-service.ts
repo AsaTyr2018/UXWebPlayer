@@ -43,6 +43,7 @@ export interface MediaAssetRecord {
   genre?: string;
   year?: string;
   description?: string;
+  artworkFilename?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -64,10 +65,13 @@ const ensureDirectory = (value: string) => {
   fs.mkdirSync(value, { recursive: true });
 };
 
+const artworkRoot = path.join(MEDIA_ROOT, 'artwork');
+
 const ensureMediaRoot = () => {
   ensureDirectory(MEDIA_ROOT);
   ensureDirectory(path.join(MEDIA_ROOT, 'music'));
   ensureDirectory(path.join(MEDIA_ROOT, 'video'));
+  ensureDirectory(artworkRoot);
 };
 
 let cachedState: MediaLibraryState | null = null;
@@ -113,10 +117,30 @@ const playlistDirectory = (playlist: PlaylistRecord) => {
   return path.join(MEDIA_ROOT, playlist.type, playlist.id);
 };
 
+const artworkDirectory = (playlist: PlaylistRecord) => {
+  return path.join(artworkRoot, playlist.id);
+};
+
 const formatTimestamp = () => new Date().toISOString();
 
 const mapAssetFilePath = (asset: MediaAssetRecord, playlist: PlaylistRecord) => {
   return path.join(playlistDirectory(playlist), asset.filename);
+};
+
+const mapAssetArtworkPath = (asset: MediaAssetRecord, playlist: PlaylistRecord) => {
+  if (!asset.artworkFilename) {
+    return null;
+  }
+
+  return path.join(artworkDirectory(playlist), asset.artworkFilename);
+};
+
+export const assetArtworkUrl = (asset: MediaAssetRecord): string | null => {
+  if (!asset.artworkFilename) {
+    return null;
+  }
+
+  return `/media/artwork/${asset.playlistId}/${asset.artworkFilename}`;
 };
 
 export const listPlaylists = (): PlaylistRecord[] => {
@@ -159,6 +183,7 @@ export const createPlaylist = (input: CreatePlaylistInput): PlaylistRecord => {
   state.playlists = [playlist, ...state.playlists];
 
   ensureDirectory(playlistDirectory(playlist));
+  ensureDirectory(artworkDirectory(playlist));
   saveState(state);
 
   return playlist;
@@ -195,12 +220,18 @@ export const deletePlaylist = (playlistId: string) => {
   }
 
   const playlistDir = playlistDirectory(playlist);
+  const artworkDir = artworkDirectory(playlist);
 
   const assetsToRemove = state.assets.filter((asset) => asset.playlistId === playlistId);
   for (const asset of assetsToRemove) {
     const filePath = mapAssetFilePath(asset, playlist);
     if (fs.existsSync(filePath)) {
       fs.rmSync(filePath, { force: true });
+    }
+
+    const artworkPath = mapAssetArtworkPath(asset, playlist);
+    if (artworkPath && fs.existsSync(artworkPath)) {
+      fs.rmSync(artworkPath, { force: true });
     }
   }
 
@@ -210,6 +241,10 @@ export const deletePlaylist = (playlistId: string) => {
 
   if (fs.existsSync(playlistDir)) {
     fs.rmSync(playlistDir, { recursive: true, force: true });
+  }
+
+  if (fs.existsSync(artworkDir)) {
+    fs.rmSync(artworkDir, { recursive: true, force: true });
   }
 };
 
@@ -237,6 +272,7 @@ export const createAssets = (input: CreateAssetInput): MediaAssetRecord[] => {
 
   const directory = playlistDirectory(playlist);
   ensureDirectory(directory);
+  ensureDirectory(artworkDirectory(playlist));
 
   const createdAssets: MediaAssetRecord[] = [];
   for (const file of input.files) {
@@ -265,6 +301,7 @@ export const createAssets = (input: CreateAssetInput): MediaAssetRecord[] => {
       genre: '',
       year: '',
       description: '',
+      artworkFilename: null,
       createdAt: timestamp,
       updatedAt: timestamp
     };
@@ -344,10 +381,112 @@ export const deleteAsset = (assetId: string) => {
     if (fs.existsSync(filePath)) {
       fs.rmSync(filePath, { force: true });
     }
+
+    const artworkPath = mapAssetArtworkPath(asset, playlist);
+    if (artworkPath && fs.existsSync(artworkPath)) {
+      fs.rmSync(artworkPath, { force: true });
+    }
   }
 
   state.assets = state.assets.filter((entry) => entry.id !== assetId);
   saveState(state);
+};
+
+export interface UpdateAssetArtworkInput {
+  buffer: Buffer;
+  mimeType: string;
+  originalName: string;
+  size: number;
+}
+
+const allowedArtworkMimeTypes = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif'
+]);
+
+const deriveArtworkExtension = (input: UpdateAssetArtworkInput) => {
+  if (input.mimeType === 'image/jpeg') {
+    return '.jpg';
+  }
+
+  if (input.mimeType === 'image/png') {
+    return '.png';
+  }
+
+  if (input.mimeType === 'image/webp') {
+    return '.webp';
+  }
+
+  if (input.mimeType === 'image/gif') {
+    return '.gif';
+  }
+
+  const extension = path.extname(input.originalName).toLowerCase();
+  if (extension) {
+    return extension;
+  }
+
+  return '.jpg';
+};
+
+export const updateAssetArtwork = (
+  assetId: string,
+  file: UpdateAssetArtworkInput
+): MediaAssetRecord => {
+  if (!allowedArtworkMimeTypes.has(file.mimeType)) {
+    throw new LibraryValidationError('Artwork must be a JPEG, PNG, GIF, or WebP image.');
+  }
+
+  const state = loadState();
+  const asset = state.assets.find((entry) => entry.id === assetId);
+
+  if (!asset) {
+    throw new LibraryNotFoundError('Asset not found.');
+  }
+
+  const playlist = findPlaylistById(asset.playlistId);
+  if (!playlist) {
+    throw new LibraryNotFoundError('Playlist not found.');
+  }
+
+  ensureDirectory(artworkDirectory(playlist));
+
+  const extension = deriveArtworkExtension(file);
+  const filename = `${asset.id}${extension}`;
+  const artworkPath = path.join(artworkDirectory(playlist), filename);
+
+  fs.writeFileSync(artworkPath, file.buffer);
+
+  asset.artworkFilename = filename;
+  asset.updatedAt = formatTimestamp();
+  saveState(state);
+
+  return { ...asset };
+};
+
+export const removeAssetArtwork = (assetId: string): MediaAssetRecord => {
+  const state = loadState();
+  const asset = state.assets.find((entry) => entry.id === assetId);
+
+  if (!asset) {
+    throw new LibraryNotFoundError('Asset not found.');
+  }
+
+  const playlist = findPlaylistById(asset.playlistId);
+  if (playlist && asset.artworkFilename) {
+    const artworkPath = mapAssetArtworkPath(asset, playlist);
+    if (artworkPath && fs.existsSync(artworkPath)) {
+      fs.rmSync(artworkPath, { force: true });
+    }
+  }
+
+  asset.artworkFilename = null;
+  asset.updatedAt = formatTimestamp();
+  saveState(state);
+
+  return { ...asset };
 };
 
 export interface MediaLibraryMetrics {

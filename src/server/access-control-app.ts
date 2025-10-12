@@ -19,7 +19,8 @@ import {
   findPlaylistById,
   listAssets,
   mediaRootPath,
-  type MediaAssetRecord
+  type MediaAssetRecord,
+  assetArtworkUrl
 } from './media-library-service.js';
 import { findEndpointBySlug } from './endpoint-service.js';
 
@@ -38,7 +39,8 @@ const mapAssetToTrack = (asset: MediaAssetRecord) => ({
   artist: asset.artist ?? '',
   durationSeconds: asset.durationSeconds,
   src: assetPlaybackUrl(asset),
-  mimeType: asset.mimeType
+  mimeType: asset.mimeType,
+  artworkUrl: assetArtworkUrl(asset)
 });
 
 const readEmbedTemplate = () => {

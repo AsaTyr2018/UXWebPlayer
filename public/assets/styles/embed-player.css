@@ -191,20 +191,77 @@ body[data-player-variant='background'] {
   border: 1px solid rgba(59, 130, 246, 0.35);
 }
 
-.player-visualization-placeholder {
-  display: none;
+#player-root[data-player-variant='large'] .player-visualization {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  min-height: 220px;
+  border: 1px solid rgba(96, 165, 250, 0.35);
+  background: linear-gradient(145deg, rgba(30, 64, 175, 0.45), rgba(15, 23, 42, 0.75));
 }
 
-#player-root[data-player-variant='large'] .player-visualization-placeholder {
+#player-root[data-player-variant='large'] .player-artwork {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+  filter: saturate(1.1);
+}
+
+#player-root[data-player-variant='large'] .player-artwork img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+#player-root[data-player-variant='large'] .player-visualization-stage {
+  position: relative;
+  z-index: 1;
   display: grid;
   place-items: center;
-  border-radius: 16px;
-  border: 1px dashed rgba(96, 165, 250, 0.55);
-  background: rgba(30, 64, 175, 0.25);
-  color: rgba(148, 163, 184, 0.9);
-  font-size: 0.9rem;
-  padding: 16px;
-  min-height: 220px;
+  padding: 24px;
+  color: rgba(191, 219, 254, 0.85);
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.8s ease;
+  height: 100%;
+  backdrop-filter: blur(0px);
+}
+
+#player-root[data-player-variant='large'] .player-visualization-stage span {
+  display: block;
+  padding: 8px 12px;
+  border-radius: 9999px;
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px dashed rgba(96, 165, 250, 0.6);
+}
+
+#player-root[data-player-variant='large'] .player-visualization.has-artwork .player-artwork {
+  opacity: 0;
+}
+
+#player-root[data-player-variant='large'] .player-visualization.show-artwork .player-artwork {
+  opacity: 1;
+}
+
+#player-root[data-player-variant='large'] .player-visualization.artwork-faded .player-artwork {
+  opacity: 0.2;
+}
+
+#player-root[data-player-variant='large'] .player-visualization.has-artwork .player-visualization-stage {
+  opacity: 0;
+}
+
+#player-root[data-player-variant='large'] .player-visualization.artwork-faded .player-visualization-stage {
+  opacity: 1;
+  backdrop-filter: blur(6px);
+}
+
+#player-root[data-player-variant='large'] .player-visualization:not(.has-artwork) .player-visualization-stage {
+  opacity: 1;
 }
 
 .background-audio {
