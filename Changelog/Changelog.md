@@ -226,3 +226,13 @@
 **Docs:** README updated with analytics/branding storage details and new configuration variables  
 **Rollback Plan:** Revert analytics/branding service commits and remove related README and test updates  
 **Refs:** N/A
+
+## [2025-10-13 18:45] Enable branding editor workflows
+**Change Type:** Normal Change  
+**Why:** Allow administrators to manage branding settings without editing JSON files manually  
+**What changed:** Added a PATCH `/api/library/branding` route, introduced an editable branding form in the admin console with validation and feedback, and expanded Vitest coverage for the new API and UI flows  
+**Impact:** Branding updates can be performed through the authenticated console; stored settings remain backward compatible  
+**Testing:** `npm run test`  
+**Docs:** README updated with branding editor details  
+**Rollback Plan:** Revert the branding workflow commit and remove the new API route and UI form  
+**Refs:** N/A
