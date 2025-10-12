@@ -16,6 +16,11 @@ Embeddable multimedia library designed to deliver audio and video playback insid
 <div data-uxplayer></div>
 ```
 
+## Admin Data Model
+- `AdminData` aggregates dashboard metrics, playlists, endpoints, analytics, branding, user roster, configuration, diagnostics, and audit entries so the console can render every page offline or through a live API.【F:src/admin/types.ts†L1-L105】
+- `createEmptyAdminData()` returns the zeroed structure used before the API responds, making it easy to hydrate the console in demos or tests.【F:src/admin/state/empty-admin-data.ts†L1-L28】
+- Inject data by setting the `<ux-admin-app>` `data` property or populating `window.__UX_ADMIN_DATA__` before the component upgrades; the structure must match `AdminData` to avoid runtime gaps.【F:README.md†L29-L33】
+
 ## Admin Console Prototype
 The Lit + Vite-based admin dashboard now implements the full navigation shell (Dashboard, Media Library, Playlists, Endpoints, Analytics, Branding, Access Control, Configuration, Diagnostics, and Audit Trail). Media Library and Playlists are wired to the embedded API so you can create playlists, upload media, edit metadata, and persist everything to disk during development.
 
@@ -27,7 +32,7 @@ npm run dev   # Start the Vite dev server with the embedded access control API
 The dev server hosts `index.html`, which mounts the `<ux-admin-app>` Web Component showcasing the multi-page admin experience. It binds to `0.0.0.0:2222` for container and LAN access.
 
 ### Data bootstrapping
-Provide runtime data by assigning the `data` property on `<ux-admin-app>` or by defining `window.__UX_ADMIN_DATA__` before the component upgrades. The structure must match `AdminData` in [`src/admin/types.ts`](src/admin/types.ts). When no data is provided the UI surfaces zeroed metrics and guidance for connecting the live admin API.
+Provide runtime data by assigning the `data` property on `<ux-admin-app>` or by defining `window.__UX_ADMIN_DATA__` before the component upgrades. The structure must match `AdminData` in [`src/admin/types.ts`](src/admin/types.ts). When no data is provided the UI surfaces zeroed metrics and guidance for connecting the live admin API.【F:README.md†L29-L33】【F:src/admin/state/empty-admin-data.ts†L1-L28】
 
 ### Authentication & access control
 - Admin accounts live in `data/admin.sqlite` (override with `ADMIN_DB_PATH`). Passwords are hashed with bcrypt before storage.
@@ -39,6 +44,20 @@ Provide runtime data by assigning the `data` property on `<ux-admin-app>` or by 
 - The dev server exposes the Express-based access service on `/api` without requiring a separate process.
 - Use `npm run api` when you need the API outside the Vite environment (for example, end-to-end tests or integration with another host).
 - The API issues short-lived bearer tokens and persists admin accounts to SQLite. Each restart recreates the default admin if no other accounts exist.
+
+## Embedding an Endpoint Stream
+1. Create or select an endpoint in the admin console to mint a unique slug; embed URLs always use the current origin so staging and production players stay environment-aware.【F:tests/admin/admin-app.test.ts†L184-L215】【F:src/admin/components/admin-app.ts†L2552-L2583】
+2. Publish the playlist you want to expose, then drop an `<iframe>` into your website that points at the embed URL, for example:
+   ```html
+   <iframe
+     src="https://your-host/embed/123456789"
+     title="UX Web Player"
+     loading="lazy"
+     allow="autoplay; encrypted-media"
+     style="width: 100%; min-height: 420px; border: 0;"
+   ></iframe>
+   ```
+3. Optionally load the standalone player bundle if you need to tailor the UI beyond the iframe; the UMD build bootstraps any `<div data-uxplayer>` container and can fetch the stream from the assigned endpoint slug via your integration layer.【F:README.md†L13-L18】【F:src/admin/components/admin-app.ts†L2552-L2583】
 
 ### Media library workflow
 1. Create an empty playlist from the **Playlists** page and choose whether it manages music or video assets.

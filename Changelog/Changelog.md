@@ -173,15 +173,26 @@
 **What changed:** Added an Express media library API with playlist-scoped storage, wired the admin UI for playlist creation, media uploads, metadata editing, and deletion, persisted library state to disk, refreshed tests, and documented the workflow and configuration  
 **Impact:** Admins can manage music and video collections directly in the console; files are stored under `MEDIA_ROOT` and metadata persists across restarts  
 **Testing:** `npm run test`  
-**Docs:** README updated with media workflow and configuration details  
-**Rollback Plan:** Revert this change and remove generated media folders/JSON datastore  
+**Docs:** README updated with media workflow and configuration details
+**Rollback Plan:** Revert this change and remove generated media folders/JSON datastore
 **Refs:** N/A
+ 
 ## [2025-10-13 13:30] Add media library service regression tests
+**Change Type:** Standard Change
+**Why:** Ensure the media library workflow is covered by unit tests and prevent filesystem regressions
+**What changed:** Added a Vitest suite that exercises playlist creation, asset uploads, metadata updates, deletion cascades, metrics, and validation errors; serialized the Vitest worker pool to avoid SQLite contention; hardened default admin bootstrapping against duplicate inserts
+**Impact:** Improved test coverage and stability; runtime behavior unchanged apart from more robust default admin creation
+**Testing:** `npm run test -- --run`
+**Docs:** N/A
+**Rollback Plan:** Revert the test addition commit and delete `tests/server/media-library-service.test.ts`
+**Refs:** N/A
+
+## [2025-10-12 16:23] Document admin data model and embedding workflow
 **Change Type:** Standard Change  
-**Why:** Ensure the media library workflow is covered by unit tests and prevent filesystem regressions  
-**What changed:** Added a Vitest suite that exercises playlist creation, asset uploads, metadata updates, deletion cascades, metrics, and validation errors; serialized the Vitest worker pool to avoid SQLite contention; hardened default admin bootstrapping against duplicate inserts  
-**Impact:** Improved test coverage and stability; runtime behavior unchanged apart from more robust default admin creation  
-**Testing:** `npm run test -- --run`  
-**Docs:** N/A  
-**Rollback Plan:** Revert the test addition commit and delete `tests/server/media-library-service.test.ts`  
+**Why:** Surface the latest admin data contract and explain how to publish endpoint streams into external websites  
+**What changed:** Expanded README with an Admin Data Model overview, data bootstrapping references, and a step-by-step embed guide highlighting iframe usage and the environment-aware slugged URLs  
+**Impact:** Clarifies how to hydrate the console with structured data and how to drop embeds into any site; no code changes required  
+**Testing:** Not applicable (documentation-only)  
+**Docs:** README updated  
+**Rollback Plan:** Revert this documentation commit  
 **Refs:** N/A
