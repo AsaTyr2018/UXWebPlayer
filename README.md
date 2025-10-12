@@ -7,6 +7,7 @@ Embeddable multimedia library designed to deliver audio and video playback insid
 - Server-backed media library that stores uploads by playlist and media type.
 - In-app metadata editing for tracks and videos, including artist, genre, and descriptive fields.
 - Endpoint management to mint unique embed URLs, connect them to playlists, and switch embeds on or off instantly.
+- Configurable player variants (large, medium, small, background audio) selectable per endpoint to match the embed footprint.
 - Dedicated `/embed/:slug` player shell so published endpoints never expose the admin console.
 - Embed links mirror the current admin origin so staging and production hosts stay aligned.
 - Public streaming API that delivers playlist metadata and tracks to active embeds.
@@ -68,6 +69,17 @@ Provide runtime data by assigning the `data` property on `<ux-admin-app>` or by 
 3. Optionally load the standalone player bundle if you need to tailor the UI beyond the iframe; the UMD build bootstraps any `<div data-uxplayer>` container and calls `/api/embed/:slug/stream` to hydrate the playlist for the selected endpoint.【F:README.md†L13-L18】【F:public/assets/scripts/embed-player.js†L1-L214】
 
 The standalone embed served from `/embed/:slug` renders a lightweight player shell without admin navigation. It injects the resolved slug into the page, fetches the streaming payload, and plays queued tracks while surfacing clear status messaging for pending or disabled endpoints.【F:public/embed.html†L1-L22】【F:public/assets/scripts/embed-player.js†L1-L214】
+
+### Player variants
+
+Each endpoint stores a `playerVariant` so operators can choose the embed footprint when creating or editing the record. The admin console surfaces the variant selector, the API persists the choice, and the embed runtime swaps layouts at fetch time.【F:src/admin/components/admin-app.ts†L2148-L2337】【F:src/server/media-library-app.ts†L258-L315】【F:public/assets/scripts/embed-player.js†L1-L214】
+
+| Variant | Layout | Typical use |
+| --- | --- | --- |
+| **Large** | Playlist navigation on the left, transport controls on the right, visualization placeholder for future effects. | Lobby displays and feature walls that showcase upcoming visualization work. |
+| **Medium** | Default playlist list with standard controls. | General-purpose embeds where the full queue is useful. |
+| **Small** | Compact transport controls without the visible playlist. | Space-constrained sidebars or mobile surfaces. |
+| **Background** | 1px autoplay loop without controls for ambient sound beds. | Hidden background audio that should start automatically inside an experience. |
 
 ### Streaming API
 

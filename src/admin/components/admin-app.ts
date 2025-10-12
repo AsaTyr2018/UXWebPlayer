@@ -11,6 +11,7 @@ import type {
   AnalyticsMetric,
   AuditEvent,
   DiagnosticCheck,
+  EndpointPlayerVariant,
   MediaAssetType
 } from '../types.js';
 
@@ -56,6 +57,22 @@ const DEFAULT_ACCENT = '#2563eb';
 const DEFAULT_BACKGROUND = '#ffffff';
 
 type RgbColor = { r: number; g: number; b: number };
+
+const ENDPOINT_VARIANT_ORDER: EndpointPlayerVariant[] = ['large', 'medium', 'small', 'background'];
+
+const ENDPOINT_VARIANT_LABELS: Record<EndpointPlayerVariant, string> = {
+  large: 'Large — Playlist, controls, visualization placeholder',
+  medium: 'Medium — Playlist with transport controls',
+  small: 'Small — Compact transport controls',
+  background: 'Background — 1px autoplay loop'
+};
+
+const ENDPOINT_VARIANT_SUMMARY: Record<EndpointPlayerVariant, string> = {
+  large: 'Large player',
+  medium: 'Medium player',
+  small: 'Small player',
+  background: 'Background audio'
+};
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -599,6 +616,16 @@ export class UxAdminApp extends LitElement {
 
     tbody tr:last-of-type td {
       border-bottom: none;
+    }
+
+    .endpoint-name {
+      display: grid;
+      gap: 4px;
+    }
+
+    .endpoint-variant-label {
+      font-size: 12px;
+      color: var(--text-muted);
     }
 
     .endpoint-form {
@@ -1315,6 +1342,9 @@ export class UxAdminApp extends LitElement {
   private declare endpointFormPlaylistId: string;
 
   @state()
+  private declare endpointFormVariant: EndpointPlayerVariant;
+
+  @state()
   private declare endpointFormSlug: string;
 
   @state()
@@ -1448,6 +1478,7 @@ export class UxAdminApp extends LitElement {
     this.endpointFormMode = 'create';
     this.endpointFormName = '';
     this.endpointFormPlaylistId = '';
+    this.endpointFormVariant = 'medium';
     this.endpointFormSlug = '';
     this.endpointEditingId = null;
     this.endpointFormError = null;
@@ -2184,7 +2215,12 @@ export class UxAdminApp extends LitElement {
 
     return html`
       <tr>
-        <td>${endpoint.name}</td>
+        <td>
+          <div class="endpoint-name">
+            <span>${endpoint.name}</span>
+            <span class="endpoint-variant-label">${this.formatEndpointVariant(endpoint.playerVariant)}</span>
+          </div>
+        </td>
         <td>${playlistName}</td>
         <td>
           <span class="embed-url">
@@ -2279,6 +2315,20 @@ export class UxAdminApp extends LitElement {
             </select>
             <span class="helper">Endpoints can be created empty and linked later.</span>
           </label>
+          <label for="endpoint-variant">
+            Player layout
+            <select
+              id="endpoint-variant"
+              name="endpoint-variant"
+              .value=${this.endpointFormVariant}
+              @change=${this.handleEndpointVariantChange}
+            >
+              ${ENDPOINT_VARIANT_ORDER.map(
+                (variant) => html`<option value=${variant}>${ENDPOINT_VARIANT_LABELS[variant]}</option>`
+              )}
+            </select>
+            <span class="helper">Choose the embed footprint for this endpoint.</span>
+          </label>
           <div>
             <span class="helper">Embed URL</span>
             <div class="embed-url">
@@ -2316,6 +2366,7 @@ export class UxAdminApp extends LitElement {
     this.endpointEditingId = null;
     this.endpointFormName = '';
     this.endpointFormPlaylistId = '';
+    this.endpointFormVariant = 'medium';
     this.endpointFormSlug = '';
     this.endpointFormError = null;
     this.endpointFormSubmitting = false;
@@ -2328,6 +2379,7 @@ export class UxAdminApp extends LitElement {
     this.endpointEditingId = endpoint.id;
     this.endpointFormName = endpoint.name;
     this.endpointFormPlaylistId = endpoint.playlistId ?? '';
+    this.endpointFormVariant = endpoint.playerVariant;
     this.endpointFormSlug = endpoint.slug;
     this.endpointFormError = null;
     this.endpointFormSubmitting = false;
@@ -2340,6 +2392,7 @@ export class UxAdminApp extends LitElement {
     this.endpointEditingId = null;
     this.endpointFormName = '';
     this.endpointFormPlaylistId = '';
+    this.endpointFormVariant = 'medium';
     this.endpointFormSlug = '';
     this.endpointFormError = null;
     this.endpointFormSubmitting = false;
@@ -2368,7 +2421,7 @@ export class UxAdminApp extends LitElement {
         const response = await this.authorizedFetch(`${LIBRARY_API_BASE}/endpoints`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, playlistId })
+          body: JSON.stringify({ name, playlistId, playerVariant: this.endpointFormVariant })
         });
 
         if (!response.ok) {
@@ -2380,7 +2433,7 @@ export class UxAdminApp extends LitElement {
           {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, playlistId })
+            body: JSON.stringify({ name, playlistId, playerVariant: this.endpointFormVariant })
           }
         );
 
@@ -2412,6 +2465,14 @@ export class UxAdminApp extends LitElement {
   private handleEndpointPlaylistChange(event: Event) {
     const target = event.target as HTMLSelectElement | null;
     this.endpointFormPlaylistId = target?.value ?? '';
+    if (this.endpointFormError) {
+      this.endpointFormError = null;
+    }
+  }
+
+  private handleEndpointVariantChange(event: Event) {
+    const target = event.target as HTMLSelectElement | null;
+    this.endpointFormVariant = this.coerceEndpointVariant(target?.value ?? '');
     if (this.endpointFormError) {
       this.endpointFormError = null;
     }
@@ -4291,6 +4352,19 @@ export class UxAdminApp extends LitElement {
       default:
         return 'Music';
     }
+  }
+
+  private formatEndpointVariant(variant: EndpointPlayerVariant): string {
+    return ENDPOINT_VARIANT_SUMMARY[variant] ?? ENDPOINT_VARIANT_SUMMARY.medium;
+  }
+
+  private coerceEndpointVariant(value: string | null | undefined): EndpointPlayerVariant {
+    const normalized = (value ?? '').trim();
+    if ((ENDPOINT_VARIANT_ORDER as readonly string[]).includes(normalized)) {
+      return normalized as EndpointPlayerVariant;
+    }
+
+    return 'medium';
   }
 
   private mapEndpointTone(status: AdminEndpoint['status']): Tone {

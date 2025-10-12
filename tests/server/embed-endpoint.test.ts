@@ -63,7 +63,11 @@ describe('embed endpoints', () => {
         }
       ]
     });
-    const endpoint = createEndpoint({ name: 'Lobby', playlistId: playlist.id });
+    const endpoint = createEndpoint({
+      name: 'Lobby',
+      playlistId: playlist.id,
+      playerVariant: 'large'
+    });
     updateEndpoint(endpoint.id, { status: 'operational' });
 
     const app = createAccessControlApp();
@@ -71,6 +75,7 @@ describe('embed endpoints', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.endpoint.status).toBe('operational');
+    expect(response.body.endpoint.playerVariant).toBe('large');
     expect(response.body.playlist.name).toBe('In-Store');
     expect(response.body.tracks).toHaveLength(1);
     expect(response.body.tracks[0]).toMatchObject({
@@ -89,6 +94,7 @@ describe('embed endpoints', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.endpoint.status).toBe('pending');
+    expect(response.body.endpoint.playerVariant).toBe('medium');
     expect(response.body.tracks).toEqual([]);
   });
 

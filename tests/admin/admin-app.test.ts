@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '../../src/admin/components/admin-app';
 import { createEmptyAdminData } from '../../src/admin/state/empty-admin-data';
+import type { EndpointPlayerVariant } from '../../src/admin/types.js';
 
 const flush = async (element: Element) => {
   await (element as any).updateComplete;
@@ -32,6 +33,14 @@ const createJsonResponse = (body: unknown, status = 200) =>
     status,
     headers: { 'Content-Type': 'application/json' }
   });
+
+const coerceVariant = (value: unknown): EndpointPlayerVariant => {
+  if (value === 'large' || value === 'medium' || value === 'small' || value === 'background') {
+    return value;
+  }
+
+  return 'medium';
+};
 
 type TestLibraryState = {
   metrics: {
@@ -153,6 +162,7 @@ beforeEach(() => {
         name: body.name ?? '',
         slug,
         playlistId: body.playlistId ?? null,
+        playerVariant: coerceVariant(body.playerVariant),
         status: 'pending',
         lastSync: 'Never',
         latencyMs: undefined
@@ -179,6 +189,10 @@ beforeEach(() => {
 
       if (body.playlistId !== undefined) {
         endpoint.playlistId = body.playlistId || null;
+      }
+
+      if (body.playerVariant !== undefined) {
+        endpoint.playerVariant = coerceVariant(body.playerVariant);
       }
 
       if (body.status !== undefined) {
@@ -554,6 +568,7 @@ describe('ux-admin-app', () => {
         slug: '123456789',
         status: 'operational',
         playlistId: null,
+        playerVariant: 'medium',
         lastSync: '2025-01-01T12:00:00Z',
         latencyMs: 42
       }
@@ -642,6 +657,10 @@ describe('ux-admin-app', () => {
     playlistSelect.value = 'pl-assign';
     playlistSelect.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
 
+    const variantSelect = element.shadowRoot?.querySelector('#endpoint-variant') as HTMLSelectElement;
+    variantSelect.value = 'small';
+    variantSelect.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+
     const submitButton = element.shadowRoot?.querySelector('[data-testid="endpoint-form"] button.primary') as HTMLButtonElement;
     submitButton.click();
 
@@ -654,6 +673,11 @@ describe('ux-admin-app', () => {
 
     const playlistCell = rows?.[0]?.querySelectorAll('td')?.[1]?.textContent?.trim();
     expect(playlistCell).toBe('Launch Playlist');
+
+    const variantLabel = rows?.[0]?.querySelector('.endpoint-variant-label')?.textContent?.trim();
+    expect(variantLabel).toBe('Small player');
+
+    expect(state.endpoints[0]?.playerVariant).toBe('small');
 
     const embedCell = rows?.[0]?.querySelector('.embed-url');
     const embedText = embedCell?.textContent?.replace('Copy', '').trim();
@@ -684,6 +708,7 @@ describe('ux-admin-app', () => {
         slug: '222222222',
         status: 'pending',
         playlistId: 'pl-toggle',
+        playerVariant: 'medium',
         lastSync: 'Never',
         latencyMs: undefined
       }
