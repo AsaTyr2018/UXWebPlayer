@@ -1,16 +1,46 @@
-import visualizerPresets from '../data/visualizer-presets.json' assert { type: 'json' };
-
 const root = document.getElementById('player-root');
 const PLAYER_VARIANTS = ['large', 'medium', 'small', 'background'];
 
-const VISUALIZER_PRESETS = Array.isArray(visualizerPresets)
-  ? visualizerPresets.filter((preset) => preset && typeof preset.id === 'string')
-  : [];
-const VISUALIZER_PRESET_MAP = new Map(VISUALIZER_PRESETS.map((preset) => [preset.id, preset]));
-const VISUALIZER_PRESET_IDS = VISUALIZER_PRESETS.map((preset) => preset.id);
+const VISUALIZER_PRESET_SOURCE = new URL('../data/visualizer-presets.json', import.meta.url).href;
+let VISUALIZER_PRESETS = [];
+let VISUALIZER_PRESET_MAP = new Map();
+let VISUALIZER_PRESET_IDS = [];
 const VISUALIZER_RANDOM_MODE = 'random';
-const DEFAULT_VISUALIZER_PRESET_ID = VISUALIZER_PRESET_IDS[0] ?? 'bars-classic';
+let DEFAULT_VISUALIZER_PRESET_ID = 'bars-classic';
 const DEFAULT_VISUALIZER_INTERVAL_SECONDS = 30;
+
+const applyVisualizerPresetState = (presets) => {
+  VISUALIZER_PRESETS = presets;
+  VISUALIZER_PRESET_MAP = new Map(VISUALIZER_PRESETS.map((preset) => [preset.id, preset]));
+  VISUALIZER_PRESET_IDS = VISUALIZER_PRESETS.map((preset) => preset.id);
+  DEFAULT_VISUALIZER_PRESET_ID = VISUALIZER_PRESET_IDS[0] ?? 'bars-classic';
+};
+
+applyVisualizerPresetState([]);
+
+const loadVisualizerPresets = async () => {
+  try {
+    const response = await fetch(VISUALIZER_PRESET_SOURCE, {
+      headers: { Accept: 'application/json' }
+    });
+
+    if (!response.ok) {
+      return;
+    }
+
+    const data = await response.json();
+    if (!Array.isArray(data)) {
+      return;
+    }
+
+    const presets = data.filter((preset) => preset && typeof preset.id === 'string');
+    applyVisualizerPresetState(presets);
+  } catch (error) {
+    console.warn('Failed to load visualizer presets. Falling back to defaults.', error);
+  }
+};
+
+void loadVisualizerPresets();
 const AudioContextClass = window.AudioContext || window.webkitAudioContext || null;
 
 const clamp = (value, min, max) => {

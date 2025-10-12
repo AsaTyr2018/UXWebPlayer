@@ -335,3 +335,13 @@
 **Docs:** README updated with the new preset location.
 **Rollback Plan:** Remove the symlink, move the preset file back to `public/assets/data`, and revert the import and documentation updates.
 **Refs:** N/A
+## [2025-10-12 22:42] Restore embed initialization in legacy evergreen browsers
+**Change Type:** Normal Change
+**Why:** Embedded players stalled on the "initializing" placeholder when the browser lacked JSON module support.
+**What changed:** Replaced the embed runtime's JSON module import with a fetch-based preset loader that keeps sane defaults when retrieval fails, ensuring initialization continues.
+**Impact:** `/embed/:slug` pages now play correctly on Safari 16 and similar browsers without affecting API contracts.
+**Testing:** `npm run test -- --run`
+**Docs:** README feature list updated with the compatibility note.
+**Rollback Plan:** Revert the embed loader change and restore the previous JSON module import once affected clients support import assertions.
+**Refs:** N/A
+
