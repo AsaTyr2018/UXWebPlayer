@@ -166,3 +166,22 @@
 **Docs:** README updated with embed origin behavior
 **Rollback Plan:** Revert the embed origin alignment commit
 **Refs:** N/A
+
+## [2025-10-13 12:00] Implement media library and playlist management
+**Change Type:** Normal Change  
+**Why:** Deliver the end-to-end workflow for curating playlists, uploading media, and editing metadata from the admin console  
+**What changed:** Added an Express media library API with playlist-scoped storage, wired the admin UI for playlist creation, media uploads, metadata editing, and deletion, persisted library state to disk, refreshed tests, and documented the workflow and configuration  
+**Impact:** Admins can manage music and video collections directly in the console; files are stored under `MEDIA_ROOT` and metadata persists across restarts  
+**Testing:** `npm run test`  
+**Docs:** README updated with media workflow and configuration details  
+**Rollback Plan:** Revert this change and remove generated media folders/JSON datastore  
+**Refs:** N/A
+## [2025-10-13 13:30] Add media library service regression tests
+**Change Type:** Standard Change  
+**Why:** Ensure the media library workflow is covered by unit tests and prevent filesystem regressions  
+**What changed:** Added a Vitest suite that exercises playlist creation, asset uploads, metadata updates, deletion cascades, metrics, and validation errors; serialized the Vitest worker pool to avoid SQLite contention; hardened default admin bootstrapping against duplicate inserts  
+**Impact:** Improved test coverage and stability; runtime behavior unchanged apart from more robust default admin creation  
+**Testing:** `npm run test -- --run`  
+**Docs:** N/A  
+**Rollback Plan:** Revert the test addition commit and delete `tests/server/media-library-service.test.ts`  
+**Refs:** N/A
