@@ -6,6 +6,7 @@ Embeddable multimedia library designed to deliver audio and video playback insid
 - Modern, accessible player UI with integrated playlist management.
 - Configurable media directory mapping for music and video collections.
 - Extensible adapters for local folders, remote media sources, and analytics hooks.
+- Responsive admin console shell ready for playlist, endpoint, and monitoring tooling.
 
 ## Quick Start
 ```html
@@ -21,9 +22,12 @@ Embeddable multimedia library designed to deliver audio and video playback insid
 | `videoDir` | `./video/` | Relative path for video assets. |
 | `theme` | `"light"` | Visual theme preset; supports `light`, `dark`, or custom tokens. |
 
+## Admin Console
+Open [`public/admin/index.html`](public/admin/index.html) in a browser to explore the production-ready dashboard shell. The layout mirrors the interactive demo in `docs/demo/` and is the foundation for wiring playlists, endpoints, and monitoring data.
+
 ## Documentation
 - Planning overview: [`docs/planning/project-plan.md`](docs/planning/project-plan.md)
-- Admin dashboard demo layout: open [`docs/demo/index.html`](docs/demo/index.html) directly in a browser for a responsive walkthrough of the planned console shell.
+- Dashboard demo reference: open [`docs/demo/index.html`](docs/demo/index.html) directly in a browser for a responsive walkthrough of interaction states.
 
 ## Development
 Documentation is under construction. Planned topics include build tooling, testing, embedding examples, and wiring the admin console to live data sources.

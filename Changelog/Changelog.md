@@ -68,11 +68,21 @@
 **Refs:** N/A
 
 ## [2025-10-11 01:00] Add admin dashboard demo layout
-**Change Type:** Standard Change  
-**Why:** Provide a tangible reference for the planned admin console experience  
-**What changed:** Added a static dashboard demo under `docs/demo/` with HTML/CSS layout, usage notes, and README pointers  
-**Impact:** Documentation-only preview; no runtime impact  
-**Testing:** Not applicable (static demo)  
-**Docs:** README and `docs/demo/README.md` updated  
-**Rollback Plan:** Remove the `docs/demo/` directory and revert README entry  
+**Change Type:** Standard Change
+**Why:** Provide a tangible reference for the planned admin console experience
+**What changed:** Added a static dashboard demo under `docs/demo/` with HTML/CSS layout, usage notes, and README pointers
+**Impact:** Documentation-only preview; no runtime impact
+**Testing:** Not applicable (static demo)
+**Docs:** README and `docs/demo/README.md` updated
+**Rollback Plan:** Remove the `docs/demo/` directory and revert README entry
+**Refs:** N/A
+
+## [2025-10-11 10:00] Ship admin console shell
+**Change Type:** Normal Change
+**Why:** Promote the dashboard layout from demo to a production-ready admin surface
+**What changed:** Added static HTML/CSS admin console under `public/admin/`, refreshed README with access instructions, and linked demo as interaction reference
+**Impact:** Provides a ready-to-wire admin shell for future playlist, endpoint, and monitoring features without backend dependencies
+**Testing:** Manual browser inspection (static assets only)
+**Docs:** README updated with admin console section
+**Rollback Plan:** Remove `public/admin/` directory and revert README entry
 **Refs:** N/A
