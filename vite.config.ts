@@ -1,16 +1,24 @@
 import { defineConfig } from 'vite';
+import { createAccessControlApp } from './src/server/access-control-app.js';
+
+const accessControlApiPlugin = () => ({
+  name: 'access-control-api',
+  configureServer(server) {
+    const app = createAccessControlApp();
+    server.middlewares.use(app);
+  },
+  configurePreviewServer(server) {
+    const app = createAccessControlApp();
+    server.middlewares.use(app);
+  }
+});
 
 export default defineConfig({
   root: '.',
+  plugins: [accessControlApiPlugin()],
   server: {
     host: '0.0.0.0',
-    port: 2222,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:4000',
-        changeOrigin: true
-      }
-    }
+    port: 2222
   },
   build: {
     outDir: 'dist/admin',

@@ -127,11 +127,21 @@
 **Refs:** N/A
 
 ## [2025-10-12 20:00] Persist admin access control with SQLite API
+**Change Type:** Normal Change
+**Why:** Provide durable admin account management and secure authentication beyond the static default credentials
+**What changed:** Added an Express access-control API backed by SQLite and bcrypt, implemented session token handling, exposed an invite workflow in `<ux-admin-app>`, expanded Vitest coverage for server and UI flows, and wired README guidance for running the API
+**Impact:** Admin users must run `npm run api` alongside the Vite dev server; credentials are now persisted in `data/admin.sqlite` and default admin remains until operators add replacements
+**Testing:** `npm run test`
+**Docs:** README updated with API usage and configuration
+**Rollback Plan:** Revert this change set and remove the new dependencies and server files; delete `data/admin.sqlite` if created
+**Refs:** N/A
+
+## [2025-10-13 09:00] Embed access control API into Vite dev server
 **Change Type:** Normal Change  
-**Why:** Provide durable admin account management and secure authentication beyond the static default credentials  
-**What changed:** Added an Express access-control API backed by SQLite and bcrypt, implemented session token handling, exposed an invite workflow in `<ux-admin-app>`, expanded Vitest coverage for server and UI flows, and wired README guidance for running the API  
-**Impact:** Admin users must run `npm run api` alongside the Vite dev server; credentials are now persisted in `data/admin.sqlite` and default admin remains until operators add replacements  
+**Why:** Simplify development by avoiding a separate process for the SQLite-backed API  
+**What changed:** Refactored the Express app into a reusable factory, mounted it as Vite middleware for dev/preview, added HTTP-level tests with Supertest, updated tooling dependencies, and refreshed documentation  
+**Impact:** `npm run dev` now serves the API at `/api`; `npm run api` remains available for standalone scenarios  
 **Testing:** `npm run test`  
-**Docs:** README updated with API usage and configuration  
-**Rollback Plan:** Revert this change set and remove the new dependencies and server files; delete `data/admin.sqlite` if created  
+**Docs:** README updated with new startup instructions  
+**Rollback Plan:** Revert the middleware integration, restore the old `vite.config.ts` proxy, and remove the new test dependency  
 **Refs:** N/A
