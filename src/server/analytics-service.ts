@@ -4,92 +4,13 @@ import path from 'node:path';
 import type {
   AnalyticsMetric,
   AnalyticsSnapshot,
-  EndpointAnalytics
+  EndpointAnalytics,
+  EndpointStatus
 } from '../admin/types.js';
-
-const DEFAULT_GLOBAL_METRICS: AnalyticsMetric[] = [
-  {
-    id: 'streams-24h',
-    label: 'Streams (24h)',
-    value: 4280,
-    delta: 12
-  },
-  {
-    id: 'unique-listeners',
-    label: 'Unique listeners',
-    value: 1268,
-    delta: 5
-  },
-  {
-    id: 'completion-rate',
-    label: 'Completion rate',
-    value: 78,
-    delta: -3,
-    unit: '%'
-  },
-  {
-    id: 'avg-session-length',
-    label: 'Avg. session length',
-    value: 32,
-    delta: 8,
-    unit: 'm'
-  }
-];
-
-const DEFAULT_ENDPOINT_ANALYTICS: EndpointAnalytics[] = [
-  {
-    endpointId: 'endpoint-main-stage',
-    endpointName: 'Main Stage Stream',
-    endpointSlug: 'main-stage',
-    metrics: [
-      {
-        id: 'plays-24h',
-        label: 'Plays (24h)',
-        value: 1720,
-        delta: 9
-      },
-      {
-        id: 'listeners',
-        label: 'Listeners',
-        value: 864,
-        delta: 6
-      },
-      {
-        id: 'completion',
-        label: 'Completion rate',
-        value: 81,
-        delta: 4,
-        unit: '%'
-      }
-    ]
-  },
-  {
-    endpointId: 'endpoint-community',
-    endpointName: 'Community Radio',
-    endpointSlug: 'community-radio',
-    metrics: [
-      {
-        id: 'plays-24h',
-        label: 'Plays (24h)',
-        value: 820,
-        delta: 5
-      },
-      {
-        id: 'listeners',
-        label: 'Listeners',
-        value: 402,
-        delta: 2
-      },
-      {
-        id: 'completion',
-        label: 'Completion rate',
-        value: 74,
-        delta: -2,
-        unit: '%'
-      }
-    ]
-  }
-];
+import type { MediaAssetRecord, PlaylistRecord } from './media-library-service.js';
+import { computeLibraryMetrics, listAssets, listPlaylists } from './media-library-service.js';
+import type { EndpointRecord } from './endpoint-service.js';
+import { listEndpoints } from './endpoint-service.js';
 
 const ANALYTICS_STORE_PATH = path.resolve(
   process.env.ANALYTICS_DB_PATH ?? path.join('data', 'analytics.json')
@@ -110,8 +31,8 @@ const cloneEndpointAnalytics = (analytics: EndpointAnalytics): EndpointAnalytics
 
 const defaultState = (): AnalyticsState => ({
   updatedAt: new Date(0).toISOString(),
-  global: DEFAULT_GLOBAL_METRICS.map(cloneMetric),
-  perEndpoint: DEFAULT_ENDPOINT_ANALYTICS.map(cloneEndpointAnalytics)
+  global: [],
+  perEndpoint: []
 });
 
 const ensureStoreDirectory = () => {
@@ -119,50 +40,21 @@ const ensureStoreDirectory = () => {
   fs.mkdirSync(directory, { recursive: true });
 };
 
-const sanitizeNumber = (value: unknown, fallback: number) => {
-  if (typeof value !== 'number') {
-    return fallback;
-  }
-
-  if (!Number.isFinite(value)) {
-    return fallback;
-  }
-
-  return value;
-};
-
-const sanitizeString = (value: unknown, fallback: string) => {
-  if (typeof value !== 'string') {
-    return fallback;
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : fallback;
-};
-
-const sanitizeUnit = (value: unknown): string | undefined => {
-  if (typeof value !== 'string') {
-    return undefined;
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
-};
-
 const sanitizeMetric = (
   metric: Partial<AnalyticsMetric>,
-  index: number,
-  fallbacks: AnalyticsMetric[] = DEFAULT_GLOBAL_METRICS
+  fallbackId: string,
+  fallbackLabel: string
 ): AnalyticsMetric => {
-  const fallback = fallbacks[index] ?? fallbacks[0];
-
-  return {
-    id: sanitizeString(metric.id, fallback.id ?? `metric-${index + 1}`),
-    label: sanitizeString(metric.label, fallback.label ?? `Metric ${index + 1}`),
-    value: sanitizeNumber(metric.value, fallback.value ?? 0),
-    delta: sanitizeNumber(metric.delta, fallback.delta ?? 0),
-    unit: sanitizeUnit(metric.unit) ?? fallback.unit
-  };
+  const id = typeof metric.id === 'string' && metric.id.trim().length > 0
+    ? metric.id.trim()
+    : fallbackId;
+  const label = typeof metric.label === 'string' && metric.label.trim().length > 0
+    ? metric.label.trim()
+    : fallbackLabel;
+  const value = typeof metric.value === 'number' && Number.isFinite(metric.value) ? metric.value : 0;
+  const delta = typeof metric.delta === 'number' && Number.isFinite(metric.delta) ? metric.delta : 0;
+  const unit = typeof metric.unit === 'string' && metric.unit.trim().length > 0 ? metric.unit.trim() : undefined;
+  return { id, label, value, delta, unit };
 };
 
 const sanitizeEndpointAnalytics = (
@@ -171,32 +63,43 @@ const sanitizeEndpointAnalytics = (
   },
   index: number
 ): EndpointAnalytics => {
-  const fallback = DEFAULT_ENDPOINT_ANALYTICS[index] ?? DEFAULT_ENDPOINT_ANALYTICS[0];
   const metrics = Array.isArray(analytics.metrics)
-    ? analytics.metrics.map((metric, metricIndex) => sanitizeMetric(metric, metricIndex, fallback.metrics))
-    : fallback.metrics.map(cloneMetric);
+    ? analytics.metrics.map((metric, metricIndex) =>
+        sanitizeMetric(metric, `metric-${metricIndex + 1}`, `Metric ${metricIndex + 1}`)
+      )
+    : [];
 
+  const fallbackId = `endpoint-${index + 1}`;
   return {
-    endpointId: sanitizeString(analytics.endpointId, fallback.endpointId ?? `endpoint-${index + 1}`),
-    endpointName: sanitizeString(analytics.endpointName, fallback.endpointName ?? `Endpoint ${index + 1}`),
-    endpointSlug: sanitizeString(analytics.endpointSlug, fallback.endpointSlug ?? `endpoint-${index + 1}`),
+    endpointId:
+      typeof analytics.endpointId === 'string' && analytics.endpointId.trim().length > 0
+        ? analytics.endpointId.trim()
+        : fallbackId,
+    endpointName:
+      typeof analytics.endpointName === 'string' && analytics.endpointName.trim().length > 0
+        ? analytics.endpointName.trim()
+        : `Endpoint ${index + 1}`,
+    endpointSlug:
+      typeof analytics.endpointSlug === 'string' && analytics.endpointSlug.trim().length > 0
+        ? analytics.endpointSlug.trim()
+        : fallbackId,
     metrics
   };
 };
 
 const sanitizeState = (state: Partial<AnalyticsSnapshot>): AnalyticsState => {
-  const fallback = defaultState();
-
   const global = Array.isArray(state.global)
-    ? state.global.map((metric, index) => sanitizeMetric(metric, index, DEFAULT_GLOBAL_METRICS))
-    : fallback.global.map(cloneMetric);
+    ? state.global.map((metric, index) =>
+        sanitizeMetric(metric, `metric-${index + 1}`, `Metric ${index + 1}`)
+      )
+    : [];
 
   const perEndpoint = Array.isArray(state.perEndpoint)
     ? state.perEndpoint.map((entry, index) => sanitizeEndpointAnalytics(entry, index))
-    : fallback.perEndpoint.map(cloneEndpointAnalytics);
+    : [];
 
   return {
-    updatedAt: typeof state.updatedAt === 'string' ? state.updatedAt : fallback.updatedAt,
+    updatedAt: typeof state.updatedAt === 'string' ? state.updatedAt : new Date(0).toISOString(),
     global,
     perEndpoint
   };
@@ -232,13 +135,154 @@ const writeState = (state: AnalyticsState) => {
   cachedState = state;
 };
 
-export const getAnalyticsSnapshot = (): AnalyticsSnapshot => {
-  const state = loadState();
+const cloneSnapshot = (snapshot: AnalyticsSnapshot): AnalyticsSnapshot => ({
+  updatedAt: snapshot.updatedAt,
+  global: snapshot.global.map(cloneMetric),
+  perEndpoint: snapshot.perEndpoint.map(cloneEndpointAnalytics)
+});
+
+const createMetric = (
+  id: string,
+  label: string,
+  value: number,
+  previousMetrics: Map<string, AnalyticsMetric>,
+  unit?: string
+): AnalyticsMetric => {
+  const previous = previousMetrics.get(id);
+  const delta = previous ? value - previous.value : 0;
+  return { id, label, value, delta, unit };
+};
+
+const statusScore: Record<EndpointStatus, number> = {
+  operational: 100,
+  degraded: 55,
+  pending: 20,
+  disabled: 0
+};
+
+const hoursSince = (iso: string | null | undefined): number | null => {
+  if (!iso) {
+    return null;
+  }
+
+  const timestamp = Date.parse(iso);
+  if (Number.isNaN(timestamp)) {
+    return null;
+  }
+
+  const diff = Date.now() - timestamp;
+  const hours = diff / (1000 * 60 * 60);
+  return Math.max(0, Math.round(hours));
+};
+
+const buildAssetIndex = (assets: MediaAssetRecord[]) => {
+  const index = new Map<string, MediaAssetRecord[]>();
+  for (const asset of assets) {
+    const list = index.get(asset.playlistId) ?? [];
+    list.push(asset);
+    index.set(asset.playlistId, list);
+  }
+  return index;
+};
+
+const createEndpointMetric = (
+  endpointMetrics: Map<string, AnalyticsMetric>,
+  id: string,
+  label: string,
+  value: number,
+  unit?: string
+): AnalyticsMetric => {
+  const previous = endpointMetrics.get(id);
+  const delta = previous ? value - previous.value : 0;
+  return { id, label, value, delta, unit };
+};
+
+const generateGlobalMetrics = (previous: AnalyticsSnapshot): AnalyticsMetric[] => {
+  const metrics = computeLibraryMetrics();
+  const endpoints = listEndpoints();
+  const previousMetrics = new Map(previous.global.map((metric) => [metric.id, metric]));
+
+  const operational = endpoints.filter((endpoint) => endpoint.status === 'operational').length;
+  const totalEndpoints = endpoints.length;
+
+  return [
+    createMetric('media-assets', 'Media assets', metrics.mediaAssets, previousMetrics),
+    createMetric('published-playlists', 'Published playlists', metrics.publishedPlaylists, previousMetrics),
+    createMetric('operational-endpoints', 'Operational endpoints', operational, previousMetrics),
+    createMetric('total-endpoints', 'Total endpoints', totalEndpoints, previousMetrics)
+  ];
+};
+
+const buildEndpointName = (endpoint: EndpointRecord, playlists: PlaylistRecord[]): string => {
+  if (endpoint.name.trim().length > 0) {
+    return endpoint.name;
+  }
+
+  const playlist = playlists.find((entry) => entry.id === endpoint.playlistId);
+  return playlist ? `${playlist.name} stream` : 'Endpoint';
+};
+
+const generatePerEndpointAnalytics = (previous: AnalyticsSnapshot): EndpointAnalytics[] => {
+  const endpoints = listEndpoints();
+  const playlists = listPlaylists();
+  const assets = listAssets();
+  const assetIndex = buildAssetIndex(assets);
+  const previousEndpoints = new Map(previous.perEndpoint.map((entry) => [entry.endpointId, entry]));
+
+  return endpoints.map((endpoint, index) => {
+    const previousEntry = previousEndpoints.get(endpoint.id);
+    const previousMetrics = previousEntry
+      ? new Map(previousEntry.metrics.map((metric) => [metric.id, metric]))
+      : new Map<string, AnalyticsMetric>();
+    const playlistAssets = endpoint.playlistId ? assetIndex.get(endpoint.playlistId) ?? [] : [];
+    const trackCount = playlistAssets.length;
+    const totalDurationSeconds = playlistAssets.reduce((sum, asset) => sum + (asset.durationSeconds ?? 0), 0);
+    const runtimeMinutes = Math.round(totalDurationSeconds / 60);
+    const score = statusScore[endpoint.status] ?? 0;
+    const sinceSync = hoursSince(endpoint.lastSync);
+    const latency = typeof endpoint.latencyMs === 'number' && Number.isFinite(endpoint.latencyMs)
+      ? Math.round(endpoint.latencyMs)
+      : null;
+
+    const metrics: AnalyticsMetric[] = [
+      createEndpointMetric(previousMetrics, 'track-count', 'Tracks available', trackCount),
+      createEndpointMetric(previousMetrics, 'runtime-minutes', 'Runtime (min)', runtimeMinutes, 'm'),
+      createEndpointMetric(previousMetrics, 'status-score', 'Status score', score)
+    ];
+
+    if (sinceSync !== null) {
+      metrics.push(createEndpointMetric(previousMetrics, 'hours-since-sync', 'Hours since sync', sinceSync, 'h'));
+    }
+
+    if (latency !== null) {
+      metrics.push(createEndpointMetric(previousMetrics, 'latency', 'Latency', latency, 'ms'));
+    }
+
+    return {
+      endpointId: endpoint.id,
+      endpointName: buildEndpointName(endpoint, playlists) ?? `Endpoint ${index + 1}`,
+      endpointSlug: endpoint.slug,
+      metrics
+    };
+  });
+};
+
+const buildSnapshot = (previous: AnalyticsSnapshot): AnalyticsSnapshot => {
+  const global = generateGlobalMetrics(previous);
+  const perEndpoint = generatePerEndpointAnalytics(previous);
+
   return {
-    updatedAt: state.updatedAt,
-    global: state.global.map(cloneMetric),
-    perEndpoint: state.perEndpoint.map(cloneEndpointAnalytics)
+    updatedAt: new Date().toISOString(),
+    global,
+    perEndpoint
   };
+};
+
+export const getAnalyticsSnapshot = (): AnalyticsSnapshot => {
+  const previous = loadState();
+  const snapshot = buildSnapshot(previous);
+  writeState(snapshot);
+  return cloneSnapshot(snapshot);
 };
 
 export const setAnalyticsSnapshot = (snapshot: AnalyticsSnapshot): AnalyticsSnapshot => {
@@ -249,11 +293,7 @@ export const setAnalyticsSnapshot = (snapshot: AnalyticsSnapshot): AnalyticsSnap
     perEndpoint: sanitized.perEndpoint.map(cloneEndpointAnalytics)
   };
   writeState(nextState);
-  return {
-    updatedAt: nextState.updatedAt,
-    global: nextState.global.map(cloneMetric),
-    perEndpoint: nextState.perEndpoint.map(cloneEndpointAnalytics)
-  };
+  return cloneSnapshot(nextState);
 };
 
 export const getAnalyticsMetrics = (): AnalyticsMetric[] => {
@@ -261,13 +301,17 @@ export const getAnalyticsMetrics = (): AnalyticsMetric[] => {
 };
 
 export const setAnalyticsMetrics = (metrics: AnalyticsMetric[]): AnalyticsMetric[] => {
-  const current = getAnalyticsSnapshot();
-  const updated = setAnalyticsSnapshot({
-    updatedAt: current.updatedAt,
-    global: metrics,
-    perEndpoint: current.perEndpoint
-  });
-  return updated.global;
+  const sanitizedMetrics = metrics.map((metric, index) =>
+    sanitizeMetric(metric, `metric-${index + 1}`, `Metric ${index + 1}`)
+  );
+  const current = loadState();
+  const nextState: AnalyticsState = {
+    updatedAt: new Date().toISOString(),
+    global: sanitizedMetrics.map(cloneMetric),
+    perEndpoint: current.perEndpoint.map(cloneEndpointAnalytics)
+  };
+  writeState(nextState);
+  return nextState.global.map(cloneMetric);
 };
 
 export const resetAnalyticsMetrics = () => {
