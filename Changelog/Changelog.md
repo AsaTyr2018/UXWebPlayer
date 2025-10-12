@@ -117,11 +117,21 @@
 **Rollback Plan:** Revert the access control login commit and restore the previous empty user state
 **Refs:** N/A
 ## [2025-10-12 18:00] Gate admin console behind login dialog
+**Change Type:** Normal Change
+**Why:** Ensure the admin experience prompts for authentication instead of rendering a blank screen when no session exists
+**What changed:** Added a dedicated login screen gating the console, centralized the sign-in form markup, surfaced signed-in user context, refreshed Vitest coverage, and updated README guidance
+**Impact:** Administrators must authenticate before navigating the console; default credentials remain `admin` / `admin` until replaced
+**Testing:** `npm run test`
+**Docs:** README updated with authentication instructions
+**Rollback Plan:** Revert the commit introducing the login screen changes
+**Refs:** N/A
+
+## [2025-10-12 20:00] Persist admin access control with SQLite API
 **Change Type:** Normal Change  
-**Why:** Ensure the admin experience prompts for authentication instead of rendering a blank screen when no session exists  
-**What changed:** Added a dedicated login screen gating the console, centralized the sign-in form markup, surfaced signed-in user context, refreshed Vitest coverage, and updated README guidance  
-**Impact:** Administrators must authenticate before navigating the console; default credentials remain `admin` / `admin` until replaced  
+**Why:** Provide durable admin account management and secure authentication beyond the static default credentials  
+**What changed:** Added an Express access-control API backed by SQLite and bcrypt, implemented session token handling, exposed an invite workflow in `<ux-admin-app>`, expanded Vitest coverage for server and UI flows, and wired README guidance for running the API  
+**Impact:** Admin users must run `npm run api` alongside the Vite dev server; credentials are now persisted in `data/admin.sqlite` and default admin remains until operators add replacements  
 **Testing:** `npm run test`  
-**Docs:** README updated with authentication instructions  
-**Rollback Plan:** Revert the commit introducing the login screen changes  
+**Docs:** README updated with API usage and configuration  
+**Rollback Plan:** Revert this change set and remove the new dependencies and server files; delete `data/admin.sqlite` if created  
 **Refs:** N/A
