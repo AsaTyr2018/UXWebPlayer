@@ -111,13 +111,9 @@ body[data-player-variant='background'] {
 }
 
 #player-root[data-player-variant='large'] .player-playback {
-  grid-template-columns: minmax(220px, 280px) 1fr;
-  grid-template-areas:
-    'playlist now'
-    'playlist audio'
-    'playlist feedback'
-    'playlist visualization';
-  align-items: stretch;
+  grid-template-columns: minmax(240px, 320px) 1fr;
+  align-items: start;
+  gap: 24px;
 }
 
 .now-playing {
@@ -164,24 +160,35 @@ body[data-player-variant='background'] {
   display: none;
 }
 
-#player-root[data-player-variant='large'] .track-list {
-  grid-area: playlist;
-  max-height: 320px;
+
+#player-root[data-player-variant='large'] .player-large-playlist {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+#player-root[data-player-variant='large'] .player-large-playlist .track-list {
+  max-height: 360px;
   overflow-y: auto;
-  padding-right: 4px;
+  padding-right: 6px;
 }
 
-#player-root[data-player-variant='large'] .now-playing {
-  grid-area: now;
+#player-root[data-player-variant='large'] .player-large-right {
+  display: grid;
+  gap: 16px;
+  align-content: start;
 }
 
-#player-root[data-player-variant='large'] .player-audio {
-  grid-area: audio;
-  width: 100%;
+.player-transport {
+  display: grid;
+  gap: 12px;
 }
 
-#player-root[data-player-variant='large'] .playback-feedback {
-  grid-area: feedback;
+#player-root[data-player-variant='large'] .player-transport {
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(30, 64, 175, 0.25);
+  border: 1px solid rgba(59, 130, 246, 0.35);
 }
 
 .player-visualization-placeholder {
@@ -191,13 +198,13 @@ body[data-player-variant='background'] {
 #player-root[data-player-variant='large'] .player-visualization-placeholder {
   display: grid;
   place-items: center;
-  grid-area: visualization;
   border-radius: 16px;
   border: 1px dashed rgba(96, 165, 250, 0.55);
   background: rgba(30, 64, 175, 0.25);
   color: rgba(148, 163, 184, 0.9);
   font-size: 0.9rem;
   padding: 16px;
+  min-height: 220px;
 }
 
 .background-audio {
