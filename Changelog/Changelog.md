@@ -66,3 +66,13 @@
 **Docs:** Updated `docs/planning/project-plan.md`
 **Rollback Plan:** Revert documentation update commit
 **Refs:** N/A
+
+## [2025-10-11 01:00] Add admin dashboard demo layout
+**Change Type:** Standard Change  
+**Why:** Provide a tangible reference for the planned admin console experience  
+**What changed:** Added a static dashboard demo under `docs/demo/` with HTML/CSS layout, usage notes, and README pointers  
+**Impact:** Documentation-only preview; no runtime impact  
+**Testing:** Not applicable (static demo)  
+**Docs:** README and `docs/demo/README.md` updated  
+**Rollback Plan:** Remove the `docs/demo/` directory and revert README entry  
+**Refs:** N/A

@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>UXWebPlayer Admin Dashboard Demo</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="dashboard">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-icon">🎛️</span>
+          <div class="brand-label">
+            <span class="brand-title">UXWebPlayer</span>
+            <span class="brand-subtitle">Admin Console</span>
+          </div>
+        </div>
+        <nav class="nav">
+          <p class="nav-section">Overview</p>
+          <a class="nav-link is-active" href="#">Dashboard</a>
+          <a class="nav-link" href="#">Media Library</a>
+          <a class="nav-link" href="#">Playlists</a>
+          <a class="nav-link" href="#">Endpoints</a>
+          <a class="nav-link" href="#">Analytics</a>
+          <a class="nav-link" href="#">Branding</a>
+          <p class="nav-section">Administration</p>
+          <a class="nav-link" href="#">Access Control</a>
+          <a class="nav-link" href="#">Configuration</a>
+          <a class="nav-link" href="#">Diagnostics</a>
+          <a class="nav-link" href="#">Audit Trail</a>
+        </nav>
+        <div class="sidebar-footer">
+          <div class="status">
+            <span class="status-indicator"></span>
+            <span class="status-label">Live sync active</span>
+          </div>
+          <button class="secondary">Download Manifest</button>
+        </div>
+      </aside>
+      <main class="workspace">
+        <header class="workspace-header">
+          <div class="header-left">
+            <h1>Dashboard</h1>
+            <p class="subtitle">Monitor the health of your media catalog and embedding endpoints.</p>
+          </div>
+          <div class="header-right">
+            <label class="search">
+              <input type="search" placeholder="Search playlists, endpoints, media" />
+            </label>
+            <button class="primary">New Playlist</button>
+            <div class="user">
+              <span class="user-avatar">AD</span>
+              <div class="user-meta">
+                <span class="user-name">Alex Doe</span>
+                <span class="user-role">Administrator</span>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <section class="stats">
+          <article class="stat-card">
+            <header>
+              <span class="stat-label">Total Media Assets</span>
+              <span class="badge neutral">+24 new</span>
+            </header>
+            <p class="stat-value">1,284</p>
+            <p class="stat-trend positive">+4.2% vs last week</p>
+          </article>
+          <article class="stat-card">
+            <header>
+              <span class="stat-label">Published Playlists</span>
+              <span class="badge positive">Live</span>
+            </header>
+            <p class="stat-value">38</p>
+            <p class="stat-trend positive">98% synced</p>
+          </article>
+          <article class="stat-card">
+            <header>
+              <span class="stat-label">Active Endpoints</span>
+              <span class="badge warning">2 pending</span>
+            </header>
+            <p class="stat-value">14</p>
+            <p class="stat-trend warning">Sync delayed on 2 embeds</p>
+          </article>
+          <article class="stat-card">
+            <header>
+              <span class="stat-label">Playback Errors</span>
+              <span class="badge negative">Alerts</span>
+            </header>
+            <p class="stat-value">5</p>
+            <p class="stat-trend negative">-2 since yesterday</p>
+          </article>
+        </section>
+
+        <section class="content-grid">
+          <article class="panel span-2">
+            <header>
+              <div>
+                <h2>Playlist Publishing Queue</h2>
+                <p>Review drafts and publish to embeddable endpoints.</p>
+              </div>
+              <button class="ghost">View all</button>
+            </header>
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Status</th>
+                  <th>Last Updated</th>
+                  <th>Owner</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Featured Acoustic Sessions</td>
+                  <td><span class="badge positive">Ready</span></td>
+                  <td>Today 09:12</td>
+                  <td>Alex Doe</td>
+                </tr>
+                <tr>
+                  <td>Morning Focus Mix</td>
+                  <td><span class="badge neutral">Draft</span></td>
+                  <td>Today 08:43</td>
+                  <td>Casey Lee</td>
+                </tr>
+                <tr>
+                  <td>Podcast Spotlight</td>
+                  <td><span class="badge warning">Needs media</span></td>
+                  <td>Yesterday 21:18</td>
+                  <td>Jordan Smith</td>
+                </tr>
+                <tr>
+                  <td>Video Launchpad</td>
+                  <td><span class="badge positive">Scheduled</span></td>
+                  <td>Yesterday 17:02</td>
+                  <td>Alex Doe</td>
+                </tr>
+              </tbody>
+            </table>
+          </article>
+
+          <article class="panel">
+            <header>
+              <div>
+                <h2>Endpoint Health</h2>
+                <p>Track sync latency and embed status.</p>
+              </div>
+              <button class="ghost">Manage</button>
+            </header>
+            <ul class="list">
+              <li>
+                <div>
+                  <p class="list-title">Homepage Hero Widget</p>
+                  <p class="list-subtitle">Last sync 38 seconds ago</p>
+                </div>
+                <span class="badge positive">Operational</span>
+              </li>
+              <li>
+                <div>
+                  <p class="list-title">Mobile App Feed</p>
+                  <p class="list-subtitle warning">Sync delayed · Investigating CDN</p>
+                </div>
+                <span class="badge warning">Degraded</span>
+              </li>
+              <li>
+                <div>
+                  <p class="list-title">Partner Portal Playlist</p>
+                  <p class="list-subtitle">Last sync 4 minutes ago</p>
+                </div>
+                <span class="badge neutral">Syncing</span>
+              </li>
+            </ul>
+          </article>
+
+          <article class="panel">
+            <header>
+              <div>
+                <h2>Recent Activity</h2>
+                <p>Latest actions from the admin team.</p>
+              </div>
+              <button class="ghost">Export</button>
+            </header>
+            <ul class="timeline">
+              <li>
+                <span class="timeline-dot positive"></span>
+                <div>
+                  <p><strong>Alex Doe</strong> published <em>Featured Acoustic Sessions</em>.</p>
+                  <time>Today · 09:15</time>
+                </div>
+              </li>
+              <li>
+                <span class="timeline-dot neutral"></span>
+                <div>
+                  <p><strong>Casey Lee</strong> uploaded 12 audio files to <em>Morning Focus Mix</em>.</p>
+                  <time>Today · 08:47</time>
+                </div>
+              </li>
+              <li>
+                <span class="timeline-dot warning"></span>
+                <div>
+                  <p><strong>Monitoring Bot</strong> flagged sync delay on <em>Mobile App Feed</em>.</p>
+                  <time>Today · 08:05</time>
+                </div>
+              </li>
+              <li>
+                <span class="timeline-dot negative"></span>
+                <div>
+                  <p><strong>Jordan Smith</strong> rolled back <em>Video Launchpad</em> manifest.</p>
+                  <time>Yesterday · 19:32</time>
+                </div>
+              </li>
+            </ul>
+          </article>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>
