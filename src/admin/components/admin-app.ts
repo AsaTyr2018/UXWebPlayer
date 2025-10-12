@@ -45,6 +45,11 @@ const NAV_SECTIONS: NavSection[] = [
   }
 ];
 
+const DEFAULT_ADMIN_CREDENTIALS = {
+  username: 'admin',
+  password: 'admin'
+} as const;
+
 @customElement('ux-admin-app')
 export class UxAdminApp extends LitElement {
   static styles = css`
@@ -291,6 +296,12 @@ export class UxAdminApp extends LitElement {
       color: white;
     }
 
+    button[disabled] {
+      cursor: not-allowed;
+      opacity: 0.6;
+      box-shadow: none;
+    }
+
     .stats {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -528,6 +539,87 @@ export class UxAdminApp extends LitElement {
       color: var(--text);
     }
 
+    .login-card {
+      display: grid;
+      gap: 16px;
+      padding: 24px;
+      border-radius: 16px;
+      background: var(--surface);
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      max-width: 420px;
+    }
+
+    .login-card h3 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: -0.01em;
+    }
+
+    .login-card p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .form-group {
+      display: grid;
+      gap: 8px;
+    }
+
+    .form-group label {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .form-group input {
+      border-radius: 10px;
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      padding: 12px;
+      font: inherit;
+    }
+
+    .form-group input:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .form-error {
+      margin: 0;
+      color: var(--negative);
+      font-size: 14px;
+    }
+
+    .signed-in-banner {
+      margin: 0 0 16px;
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .signed-in-banner strong {
+      color: var(--text);
+    }
+
+    .callout {
+      display: grid;
+      gap: 8px;
+      padding: 20px;
+      border-radius: 14px;
+      background: rgba(148, 163, 184, 0.12);
+      color: var(--text);
+      font-size: 14px;
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      margin-bottom: 16px;
+    }
+
+    .callout strong {
+      font-size: 15px;
+    }
+
+    .callout.warning {
+      background: var(--warning-soft);
+      border-color: rgba(245, 158, 11, 0.32);
+    }
+
     .page-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -709,6 +801,24 @@ export class UxAdminApp extends LitElement {
 
   @state()
   private declare activePage: AdminPage;
+
+  @state()
+  private isAuthenticated = false;
+
+  @state()
+  private authenticatedUser: string | null = null;
+
+  @state()
+  private loginUsername = '';
+
+  @state()
+  private loginPassword = '';
+
+  @state()
+  private loginError: string | null = null;
+
+  @state()
+  private showDefaultAdminWarning = false;
 
   constructor() {
     super();
@@ -1219,24 +1329,6 @@ export class UxAdminApp extends LitElement {
   }
 
   private renderAccessControl() {
-    if (!this.data.users.length) {
-      return html`
-        <section class="page-panel" aria-label="Access control">
-          <header>
-            <div>
-              <h2>Access Control</h2>
-              <p>Invite collaborators and manage permissions.</p>
-            </div>
-            <button type="button">Invite user</button>
-          </header>
-          <div class="empty-state">
-            <strong>No users provisioned.</strong>
-            Invite collaborators to administrate media and endpoints.
-          </div>
-        </section>
-      `;
-    }
-
     return html`
       <section class="page-panel" aria-label="Access control">
         <header>
@@ -1244,38 +1336,182 @@ export class UxAdminApp extends LitElement {
             <h2>Access Control</h2>
             <p>Manage user roles and monitor access status.</p>
           </div>
-          <button type="button">Invite user</button>
+          <div class="table-actions">
+            <button
+              class="primary"
+              type="button"
+              ?disabled=${!this.isAuthenticated}
+              aria-disabled=${!this.isAuthenticated ? 'true' : 'false'}
+              title=${this.isAuthenticated ? 'Invite user' : 'Sign in to invite users'}
+            >
+              Invite user
+            </button>
+            ${this.isAuthenticated
+              ? html`<button class="secondary" type="button" @click=${this.handleSignOut}>Sign out</button>`
+              : nothing}
+          </div>
         </header>
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Name</th>
-              <th scope="col">Email</th>
-              <th scope="col">Role</th>
-              <th scope="col">Status</th>
-              <th scope="col">Last Active</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${this.data.users.map(
-              (user) => html`
-                <tr>
-                  <td>${user.name}</td>
-                  <td>${user.email}</td>
-                  <td>${this.formatUserRole(user.role)}</td>
-                  <td>
-                    <span class="badge ${this.mapUserTone(user.status)}">
-                      ${this.formatUserStatus(user.status)}
-                    </span>
-                  </td>
-                  <td>${user.lastActive}</td>
-                </tr>
-              `
-            )}
-          </tbody>
-        </table>
+        ${this.isAuthenticated
+          ? html`
+              ${this.renderSignedInBanner()}
+              ${this.showDefaultAdminWarning ? this.renderDefaultAdminWarning() : nothing}
+              ${this.renderUsersTable()}
+            `
+          : this.renderLoginCard()}
       </section>
     `;
+  }
+
+  private renderLoginCard() {
+    return html`
+      <form
+        class="login-card"
+        data-testid="access-login-form"
+        @submit=${this.handleLoginSubmit}
+        novalidate
+      >
+        <h3>Sign in to manage access</h3>
+        <p>Use the default admin credentials on first launch.</p>
+        <div class="form-group">
+          <label for="login-username">Username</label>
+          <input
+            id="login-username"
+            name="username"
+            type="text"
+            autocomplete="username"
+            .value=${this.loginUsername}
+            @input=${this.handleLoginInput}
+            required
+          />
+        </div>
+        <div class="form-group">
+          <label for="login-password">Password</label>
+          <input
+            id="login-password"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            .value=${this.loginPassword}
+            @input=${this.handleLoginInput}
+            required
+          />
+        </div>
+        ${this.loginError ? html`<p class="form-error" role="alert">${this.loginError}</p>` : nothing}
+        <button class="primary" type="submit">Sign in</button>
+      </form>
+    `;
+  }
+
+  private renderSignedInBanner() {
+    if (!this.authenticatedUser) {
+      return nothing;
+    }
+
+    return html`<p class="signed-in-banner" role="status">Signed in as <strong>${this.authenticatedUser}</strong></p>`;
+  }
+
+  private renderDefaultAdminWarning() {
+    return html`
+      <div class="callout warning" role="alert" data-testid="default-admin-warning">
+        <strong>Default admin in use.</strong>
+        <span>Please create your own admin account and remove the default admin.</span>
+      </div>
+    `;
+  }
+
+  private renderUsersTable() {
+    if (!this.data.users.length) {
+      return html`
+        <div class="empty-state">
+          <strong>No users provisioned.</strong>
+          Invite collaborators to administrate media and endpoints.
+        </div>
+      `;
+    }
+
+    return html`
+      <table class="table" aria-label="Provisioned users">
+        <thead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">Email</th>
+            <th scope="col">Role</th>
+            <th scope="col">Status</th>
+            <th scope="col">Last Active</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${this.data.users.map(
+            (user) => html`
+              <tr>
+                <td>${user.name}</td>
+                <td>${user.email}</td>
+                <td>${this.formatUserRole(user.role)}</td>
+                <td>
+                  <span class="badge ${this.mapUserTone(user.status)}">
+                    ${this.formatUserStatus(user.status)}
+                  </span>
+                </td>
+                <td>${user.lastActive}</td>
+              </tr>
+            `
+          )}
+        </tbody>
+      </table>
+    `;
+  }
+
+  private handleLoginInput(event: Event) {
+    const target = event.target as HTMLInputElement | null;
+    if (!target) {
+      return;
+    }
+
+    if (target.name === 'username') {
+      this.loginUsername = target.value;
+    } else if (target.name === 'password') {
+      this.loginPassword = target.value;
+    }
+
+    if (this.loginError) {
+      this.loginError = null;
+    }
+  }
+
+  private handleLoginSubmit(event: Event) {
+    event.preventDefault();
+    const username = this.loginUsername.trim();
+    const password = this.loginPassword;
+
+    if (!username || !password) {
+      this.loginError = 'Enter both username and password.';
+      return;
+    }
+
+    const normalizedUsername = username.toLowerCase();
+    const isDefaultAdmin =
+      normalizedUsername === DEFAULT_ADMIN_CREDENTIALS.username.toLowerCase() &&
+      password === DEFAULT_ADMIN_CREDENTIALS.password;
+
+    if (!isDefaultAdmin) {
+      this.loginError = 'Invalid credentials.';
+      return;
+    }
+
+    this.isAuthenticated = true;
+    this.authenticatedUser = username;
+    this.showDefaultAdminWarning = isDefaultAdmin;
+    this.loginPassword = '';
+    this.loginError = null;
+  }
+
+  private handleSignOut() {
+    this.isAuthenticated = false;
+    this.authenticatedUser = null;
+    this.loginUsername = '';
+    this.loginPassword = '';
+    this.loginError = null;
+    this.showDefaultAdminWarning = false;
   }
 
   private renderConfiguration() {

@@ -106,3 +106,13 @@
 **Docs:** README updated with navigation overview and data bootstrapping instructions
 **Rollback Plan:** Revert commit and restore previous demo-driven component implementation
 **Refs:** N/A
+
+## [2025-10-12 14:13] Add default admin access control workflow
+**Change Type:** Normal Change
+**Why:** Provide an initial authentication flow and prompt replacement of bootstrap credentials
+**What changed:** Implemented an Access Control sign-in form with default admin validation, seeded default admin user data, surfaced a post-login warning, refreshed tests, and documented the workflow
+**Impact:** Access Control page now requires signing in; administrators receive guidance to replace the default admin account
+**Testing:** `npm run test`
+**Docs:** README updated with access control instructions
+**Rollback Plan:** Revert the access control login commit and restore the previous empty user state
+**Refs:** N/A

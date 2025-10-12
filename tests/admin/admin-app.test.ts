@@ -70,4 +70,34 @@ describe('ux-admin-app', () => {
     const rows = element.shadowRoot?.querySelectorAll('tbody tr');
     expect(rows?.length).toBeGreaterThanOrEqual(1);
   });
+
+  it('warns after signing in with the default admin credentials', async () => {
+    const element = document.createElement('ux-admin-app');
+    document.body.appendChild(element);
+
+    await flush(element);
+
+    const accessNav = element.shadowRoot?.querySelector('[data-page="access-control"]') as HTMLButtonElement;
+    accessNav.click();
+
+    await flush(element);
+
+    const usernameInput = element.shadowRoot?.querySelector('#login-username') as HTMLInputElement;
+    usernameInput.value = 'admin';
+    usernameInput.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+
+    const passwordInput = element.shadowRoot?.querySelector('#login-password') as HTMLInputElement;
+    passwordInput.value = 'admin';
+    passwordInput.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+
+    const submitButton = element.shadowRoot?.querySelector(
+      '[data-testid="access-login-form"] button[type="submit"]'
+    ) as HTMLButtonElement;
+    submitButton.click();
+
+    await flush(element);
+
+    const warning = element.shadowRoot?.querySelector('[data-testid="default-admin-warning"]');
+    expect(warning?.textContent).toMatch(/Please create your own admin account and remove the default admin/);
+  });
 });

@@ -23,7 +23,16 @@ export const createEmptyAdminData = (): AdminData => ({
     fontFamily: 'Inter, sans-serif',
     tokenOverrides: 0
   },
-  users: [],
+  users: [
+    {
+      id: 'user-default-admin',
+      name: 'Default Admin',
+      email: 'admin',
+      role: 'owner',
+      lastActive: 'Never',
+      status: 'active'
+    }
+  ],
   configuration: [],
   diagnostics: [],
   auditTrail: []
