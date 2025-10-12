@@ -5,8 +5,12 @@ import { randomUUID } from 'node:crypto';
 import type { EndpointStatus } from '../admin/types.js';
 import {
   DEFAULT_ENDPOINT_PLAYER_VARIANT,
+  DEFAULT_ENDPOINT_VISUALIZER_SETTINGS,
   isEndpointPlayerVariant,
-  type EndpointPlayerVariant
+  normalizeEndpointVisualizerSettings,
+  type EndpointPlayerVariant,
+  type EndpointVisualizerMode,
+  type EndpointVisualizerSettings
 } from '../types/endpoint.js';
 
 export class EndpointValidationError extends Error {
@@ -29,6 +33,7 @@ export interface EndpointRecord {
   slug: string;
   playlistId: string | null;
   playerVariant: EndpointPlayerVariant;
+  visualizer: EndpointVisualizerSettings;
   status: EndpointStatus;
   lastSync: string | null;
   latencyMs: number | null;
@@ -75,6 +80,30 @@ const resolvePlayerVariant = (
   throw new EndpointValidationError('Invalid player variant.');
 };
 
+const resolveVisualizerSettings = (
+  value:
+    | EndpointVisualizerSettings
+    | EndpointVisualizerMode
+    | Partial<EndpointVisualizerSettings>
+    | string
+    | null
+    | undefined
+): EndpointVisualizerSettings => {
+  if (value === undefined || value === null) {
+    return DEFAULT_ENDPOINT_VISUALIZER_SETTINGS;
+  }
+
+  if (typeof value === 'string') {
+    return normalizeEndpointVisualizerSettings({ mode: value });
+  }
+
+  if (typeof value === 'object') {
+    return normalizeEndpointVisualizerSettings(value);
+  }
+
+  return DEFAULT_ENDPOINT_VISUALIZER_SETTINGS;
+};
+
 const loadState = (): EndpointStoreState => {
   if (cachedState) {
     return cachedState;
@@ -93,7 +122,8 @@ const loadState = (): EndpointStoreState => {
     const endpoints = Array.isArray(parsed.endpoints)
       ? parsed.endpoints.map((endpoint) => ({
           ...endpoint,
-          playerVariant: coercePlayerVariant((endpoint as Partial<EndpointRecord>).playerVariant)
+          playerVariant: coercePlayerVariant((endpoint as Partial<EndpointRecord>).playerVariant),
+          visualizer: resolveVisualizerSettings((endpoint as Partial<EndpointRecord>).visualizer)
         }))
       : [];
     cachedState = { endpoints };
@@ -137,6 +167,11 @@ export interface CreateEndpointInput {
   name: string;
   playlistId: string | null;
   playerVariant?: EndpointPlayerVariant;
+  visualizer?:
+    | EndpointVisualizerSettings
+    | EndpointVisualizerMode
+    | Partial<EndpointVisualizerSettings>
+    | string;
 }
 
 export const createEndpoint = (input: CreateEndpointInput): EndpointRecord => {
@@ -155,6 +190,7 @@ export const createEndpoint = (input: CreateEndpointInput): EndpointRecord => {
     slug,
     playlistId: input.playlistId ?? null,
     playerVariant: resolvePlayerVariant(input.playerVariant),
+    visualizer: resolveVisualizerSettings(input.visualizer),
     status: 'pending',
     lastSync: null,
     latencyMs: null,
@@ -172,6 +208,11 @@ export interface UpdateEndpointInput {
   name?: string;
   playlistId?: string | null;
   playerVariant?: EndpointPlayerVariant;
+  visualizer?:
+    | EndpointVisualizerSettings
+    | EndpointVisualizerMode
+    | Partial<EndpointVisualizerSettings>
+    | string;
   status?: EndpointStatus;
 }
 
@@ -198,6 +239,10 @@ export const updateEndpoint = (endpointId: string, updates: UpdateEndpointInput)
 
   if (updates.playerVariant !== undefined) {
     endpoint.playerVariant = resolvePlayerVariant(updates.playerVariant);
+  }
+
+  if (updates.visualizer !== undefined) {
+    endpoint.visualizer = resolveVisualizerSettings(updates.visualizer);
   }
 
   if (updates.status !== undefined) {

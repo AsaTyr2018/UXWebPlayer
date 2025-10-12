@@ -12,11 +12,16 @@ import type {
   AuditEvent,
   DiagnosticCheck,
   EndpointPlayerVariant,
+  EndpointVisualizerMode,
+  EndpointVisualizerSettings,
   MediaAssetType
 } from '../types.js';
 import {
   DEFAULT_ENDPOINT_PLAYER_VARIANT,
-  endpointPlayerVariants
+  DEFAULT_ENDPOINT_VISUALIZER_SETTINGS,
+  RANDOM_ENDPOINT_VISUALIZER_MODE,
+  endpointPlayerVariants,
+  visualizerModeOptions
 } from '../../types/endpoint.js';
 
 export type Tone = 'positive' | 'negative' | 'warning' | 'neutral';
@@ -1382,6 +1387,12 @@ export class UxAdminApp extends LitElement {
   private declare endpointFormVariant: EndpointPlayerVariant;
 
   @state()
+  private declare endpointFormVisualizerMode: EndpointVisualizerMode;
+
+  @state()
+  private declare endpointFormVisualizerInterval: number;
+
+  @state()
   private declare endpointFormSlug: string;
 
   @state()
@@ -1522,6 +1533,8 @@ export class UxAdminApp extends LitElement {
     this.endpointFormName = '';
     this.endpointFormPlaylistId = '';
     this.endpointFormVariant = 'medium';
+    this.endpointFormVisualizerMode = DEFAULT_ENDPOINT_VISUALIZER_SETTINGS.mode;
+    this.endpointFormVisualizerInterval = DEFAULT_ENDPOINT_VISUALIZER_SETTINGS.randomizeIntervalSeconds;
     this.endpointFormSlug = '';
     this.endpointEditingId = null;
     this.endpointFormError = null;
@@ -2353,6 +2366,20 @@ export class UxAdminApp extends LitElement {
 
     const isEdit = this.endpointFormMode === 'edit';
     const embedUrl = this.endpointFormSlug ? this.buildEmbedUrl(this.endpointFormSlug) : '';
+    const visualizerGroups = new Map<string, typeof visualizerModeOptions>();
+    for (const option of visualizerModeOptions) {
+      const existing = visualizerGroups.get(option.group);
+      if (existing) {
+        existing.push(option);
+      } else {
+        visualizerGroups.set(option.group, [option]);
+      }
+    }
+    const selectedVisualizer =
+      visualizerModeOptions.find((option) => option.value === this.endpointFormVisualizerMode) ??
+      visualizerModeOptions.find((option) => option.value === DEFAULT_ENDPOINT_VISUALIZER_SETTINGS.mode);
+    const visualizerDescription =
+      selectedVisualizer?.description ?? 'Select how the large player visualizes the audio stream.';
 
     return html`
       <form class="endpoint-form" data-testid="endpoint-form" @submit=${this.handleEndpointFormSubmit}>
@@ -2409,6 +2436,50 @@ export class UxAdminApp extends LitElement {
             </select>
             <span class="helper">Choose the embed footprint for this endpoint.</span>
           </label>
+          <label for="endpoint-visualizer">
+            Visualization style
+            <select
+              id="endpoint-visualizer"
+              name="endpoint-visualizer"
+              .value=${this.endpointFormVisualizerMode}
+              @change=${this.handleEndpointVisualizerModeChange}
+            >
+              ${Array.from(visualizerGroups.entries()).map(
+                ([group, options]) => html`
+                  <optgroup label=${group}>
+                    ${options.map(
+                      (option) => html`
+                        <option value=${option.value} ?selected=${option.value === this.endpointFormVisualizerMode}>
+                          ${option.label}
+                        </option>
+                      `
+                    )}
+                  </optgroup>
+                `
+              )}
+            </select>
+            <span class="helper">${visualizerDescription}</span>
+          </label>
+          <label
+            for="endpoint-visualizer-interval"
+            ?hidden=${this.endpointFormVisualizerMode !== RANDOM_ENDPOINT_VISUALIZER_MODE}
+          >
+            Rotation interval (seconds)
+            <input
+              id="endpoint-visualizer-interval"
+              type="number"
+              name="endpoint-visualizer-interval"
+              min="10"
+              max="600"
+              step="5"
+              .value=${String(this.endpointFormVisualizerInterval)}
+              @input=${this.handleEndpointVisualizerIntervalChange}
+              ?disabled=${this.endpointFormVisualizerMode !== RANDOM_ENDPOINT_VISUALIZER_MODE}
+            />
+            <span class="helper">
+              Random mode rotates between visualizers. Choose an interval between 10 and 600 seconds.
+            </span>
+          </label>
           <div>
             <span class="helper">Embed URL</span>
             <div class="embed-url">
@@ -2447,6 +2518,8 @@ export class UxAdminApp extends LitElement {
     this.endpointFormName = '';
     this.endpointFormPlaylistId = '';
     this.endpointFormVariant = 'medium';
+    this.endpointFormVisualizerMode = DEFAULT_ENDPOINT_VISUALIZER_SETTINGS.mode;
+    this.endpointFormVisualizerInterval = DEFAULT_ENDPOINT_VISUALIZER_SETTINGS.randomizeIntervalSeconds;
     this.endpointFormSlug = '';
     this.endpointFormError = null;
     this.endpointFormSubmitting = false;
@@ -2460,6 +2533,8 @@ export class UxAdminApp extends LitElement {
     this.endpointFormName = endpoint.name;
     this.endpointFormPlaylistId = endpoint.playlistId ?? '';
     this.endpointFormVariant = endpoint.playerVariant;
+    this.endpointFormVisualizerMode = endpoint.visualizer.mode;
+    this.endpointFormVisualizerInterval = endpoint.visualizer.randomizeIntervalSeconds;
     this.endpointFormSlug = endpoint.slug;
     this.endpointFormError = null;
     this.endpointFormSubmitting = false;
@@ -2473,6 +2548,8 @@ export class UxAdminApp extends LitElement {
     this.endpointFormName = '';
     this.endpointFormPlaylistId = '';
     this.endpointFormVariant = 'medium';
+    this.endpointFormVisualizerMode = DEFAULT_ENDPOINT_VISUALIZER_SETTINGS.mode;
+    this.endpointFormVisualizerInterval = DEFAULT_ENDPOINT_VISUALIZER_SETTINGS.randomizeIntervalSeconds;
     this.endpointFormSlug = '';
     this.endpointFormError = null;
     this.endpointFormSubmitting = false;
@@ -2492,6 +2569,12 @@ export class UxAdminApp extends LitElement {
     }
 
     const playlistId = this.endpointFormPlaylistId || null;
+    const interval = Math.max(10, Math.min(600, Math.round(this.endpointFormVisualizerInterval)));
+    this.endpointFormVisualizerInterval = interval;
+    const visualizer: EndpointVisualizerSettings = {
+      mode: this.endpointFormVisualizerMode,
+      randomizeIntervalSeconds: interval
+    };
     this.endpointFormError = null;
     this.endpointActionError = null;
     this.endpointFormSubmitting = true;
@@ -2501,7 +2584,7 @@ export class UxAdminApp extends LitElement {
         const response = await this.authorizedFetch(`${LIBRARY_API_BASE}/endpoints`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, playlistId, playerVariant: this.endpointFormVariant })
+          body: JSON.stringify({ name, playlistId, playerVariant: this.endpointFormVariant, visualizer })
         });
 
         if (!response.ok) {
@@ -2513,7 +2596,7 @@ export class UxAdminApp extends LitElement {
           {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, playlistId, playerVariant: this.endpointFormVariant })
+            body: JSON.stringify({ name, playlistId, playerVariant: this.endpointFormVariant, visualizer })
           }
         );
 
@@ -2553,6 +2636,32 @@ export class UxAdminApp extends LitElement {
   private handleEndpointVariantChange(event: Event) {
     const target = event.target as HTMLSelectElement | null;
     this.endpointFormVariant = this.coerceEndpointVariant(target?.value ?? '');
+    if (this.endpointFormError) {
+      this.endpointFormError = null;
+    }
+  }
+
+  private handleEndpointVisualizerModeChange(event: Event) {
+    const target = event.target as HTMLSelectElement | null;
+    const value = target?.value ?? '';
+    const option = visualizerModeOptions.find((entry) => entry.value === value);
+    this.endpointFormVisualizerMode = option ? option.value : DEFAULT_ENDPOINT_VISUALIZER_SETTINGS.mode;
+    if (this.endpointFormError) {
+      this.endpointFormError = null;
+    }
+  }
+
+  private handleEndpointVisualizerIntervalChange(event: Event) {
+    const target = event.target as HTMLInputElement | null;
+    if (!target) {
+      return;
+    }
+
+    const value = Number(target.value);
+    if (Number.isFinite(value)) {
+      this.endpointFormVisualizerInterval = Math.max(10, Math.min(600, Math.round(value)));
+    }
+
     if (this.endpointFormError) {
       this.endpointFormError = null;
     }

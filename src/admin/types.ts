@@ -10,9 +10,13 @@ export type AdminPage =
   | 'diagnostics'
   | 'audit-trail';
 
-import type { EndpointPlayerVariant } from '../types/endpoint.js';
+import type {
+  EndpointPlayerVariant,
+  EndpointVisualizerMode,
+  EndpointVisualizerSettings
+} from '../types/endpoint.js';
 
-export type { EndpointPlayerVariant } from '../types/endpoint.js';
+export type { EndpointPlayerVariant, EndpointVisualizerMode, EndpointVisualizerSettings } from '../types/endpoint.js';
 
 export interface AdminMetrics {
   mediaAssets: number;
@@ -69,6 +73,7 @@ export interface AdminEndpoint {
   slug: string;
   playlistId?: string | null;
   playerVariant: EndpointPlayerVariant;
+  visualizer: EndpointVisualizerSettings;
   status: EndpointStatus;
   lastSync: string;
   latencyMs?: number;

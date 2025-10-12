@@ -182,6 +182,7 @@ export const createAccessControlApp = () => {
           name: endpoint.name,
           slug: endpoint.slug,
           playerVariant: endpoint.playerVariant,
+          visualizer: endpoint.visualizer,
           status: endpoint.status,
           lastSync: endpoint.lastSync
         },
