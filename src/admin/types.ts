@@ -76,6 +76,19 @@ export interface AnalyticsMetric {
   unit?: string;
 }
 
+export interface EndpointAnalytics {
+  endpointId: string;
+  endpointName: string;
+  endpointSlug: string;
+  metrics: AnalyticsMetric[];
+}
+
+export interface AnalyticsSnapshot {
+  updatedAt: string;
+  global: AnalyticsMetric[];
+  perEndpoint: EndpointAnalytics[];
+}
+
 export interface BrandingSettings {
   theme: 'light' | 'dark' | 'custom';
   accentColor: string;
@@ -127,7 +140,7 @@ export interface AdminData {
   mediaLibrary: MediaAsset[];
   playlists: AdminPlaylist[];
   endpoints: AdminEndpoint[];
-  analytics: AnalyticsMetric[];
+  analytics: AnalyticsSnapshot;
   branding: BrandingSettings;
   users: AdminUser[];
   configuration: ConfigurationEntry[];

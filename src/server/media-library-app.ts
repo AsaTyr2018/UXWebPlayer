@@ -28,7 +28,7 @@ import {
 } from './endpoint-service.js';
 import type { EndpointStatus } from '../admin/types.js';
 import { assertAuthenticated } from './http-auth.js';
-import { getAnalyticsMetrics } from './analytics-service.js';
+import { getAnalyticsSnapshot } from './analytics-service.js';
 import { getBrandingSettings, updateBrandingSettings } from './branding-service.js';
 import type { BrandingSettings } from '../admin/types.js';
 
@@ -168,7 +168,7 @@ export const createMediaLibraryRouter = () => {
       })),
       endpoints: endpoints.map(mapEndpointToResponse),
       mediaLibrary: assets.map(mapAssetToResponse),
-      analytics: getAnalyticsMetrics(),
+      analytics: getAnalyticsSnapshot(),
       branding: getBrandingSettings()
     });
   });

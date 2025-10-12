@@ -14,7 +14,11 @@ export const createEmptyAdminData = (): AdminData => ({
   mediaLibrary: [],
   playlists: [],
   endpoints: [],
-  analytics: [],
+  analytics: {
+    updatedAt: new Date(0).toISOString(),
+    global: [],
+    perEndpoint: []
+  },
   branding: {
     theme: 'light',
     accentColor: '#2563eb',

@@ -73,7 +73,11 @@ beforeEach(() => {
     playlists: [],
     mediaLibrary: [],
     endpoints: [],
-    analytics: [...empty.analytics],
+    analytics: {
+      updatedAt: empty.analytics.updatedAt,
+      global: [...empty.analytics.global],
+      perEndpoint: [...empty.analytics.perEndpoint]
+    },
     branding: { ...empty.branding }
   };
 
@@ -336,24 +340,43 @@ describe('ux-admin-app', () => {
     document.body.appendChild(element);
 
     const state = (globalThis as any).__TEST_LIBRARY_STATE__ as TestLibraryState;
-    state.analytics = [
-      { id: 'plays', label: 'Total plays', value: 1280, delta: 14 },
-      { id: 'completion', label: 'Completion rate', value: 84, delta: 6, unit: '%' }
-    ];
+    state.analytics = {
+      updatedAt: new Date(0).toISOString(),
+      global: [
+        { id: 'plays', label: 'Total plays', value: 1280, delta: 14 },
+        { id: 'completion', label: 'Completion rate', value: 84, delta: 6, unit: '%' }
+      ],
+      perEndpoint: [
+        {
+          endpointId: 'endpoint-1',
+          endpointName: 'Lobby Stream',
+          endpointSlug: 'lobby',
+          metrics: [
+            { id: 'plays', label: 'Plays', value: 320, delta: 4 },
+            { id: 'completion', label: 'Completion', value: 76, delta: 2, unit: '%' }
+          ]
+        }
+      ]
+    };
 
     await flush(element);
     await loginAsDefaultAdmin(element);
     await renderAnalyticsPage(element as any);
 
-    const cards = element.shadowRoot?.querySelectorAll('.analytics-card');
-    expect(cards?.length).toBe(2);
+    const globalCards = element.shadowRoot?.querySelectorAll(
+      '[aria-label="Global analytics"] .analytics-card'
+    );
+    expect(globalCards?.length).toBe(2);
 
-    const firstCardText = cards?.[0]?.textContent ?? '';
+    const firstCardText = globalCards?.[0]?.textContent ?? '';
     expect(firstCardText).toMatch(/Total plays/);
     expect(firstCardText.replace(/\s+/g, ' ')).toMatch(/1,280/);
 
-    const secondCardText = cards?.[1]?.textContent ?? '';
-    expect(secondCardText).toMatch(/84%/);
+    const endpointSections = element.shadowRoot?.querySelectorAll('.endpoint-analytics');
+    expect(endpointSections?.length).toBe(1);
+    const endpointText = endpointSections?.[0]?.textContent ?? '';
+    expect(endpointText).toMatch(/Lobby Stream/);
+    expect(endpointText).toMatch(/320/);
   });
 
   it('renders branding settings from the library state payload', async () => {
