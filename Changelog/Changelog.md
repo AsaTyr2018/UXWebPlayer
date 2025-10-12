@@ -316,3 +316,12 @@
 **Docs:** README updated with visualizer details.  
 **Rollback Plan:** Revert the commit introducing the visualizer test/doc updates.  
 **Refs:** N/A
+## [2025-10-13 10:45] Restore visualizer preset catalog
+**Change Type:** Normal Change  
+**Why:** Resolve missing preset data that prevented the dev server and embed player from loading visualizer configurations.  
+**What changed:** Added `public/assets/data/visualizer-presets.json` with twenty-five curated presets grouped by renderer type.  
+**Impact:** Dev builds and embeds can load the full visualizer catalog without runtime errors; backward compatible.  
+**Testing:** `npm run build`  
+**Docs:** README already describes the visualizer pack; no updates required.  
+**Rollback Plan:** Delete `public/assets/data/visualizer-presets.json` and revert the changelog entry.  
+**Refs:** N/A
