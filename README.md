@@ -76,7 +76,7 @@ Each endpoint stores a `playerVariant` so operators can choose the embed footpri
 
 | Variant | Layout | Typical use |
 | --- | --- | --- |
-| **Large** | Playlist navigation on the left, transport controls on the right, visualization placeholder for future effects. | Lobby displays and feature walls that showcase upcoming visualization work. |
+| **Large** | Playlist navigation on the left, visualization or cover panel on the right with transport controls directly beneath it. | Lobby displays and feature walls that showcase upcoming visualization work. |
 | **Medium** | Default playlist list with standard controls. | General-purpose embeds where the full queue is useful. |
 | **Small** | Compact transport controls without the visible playlist. | Space-constrained sidebars or mobile surfaces. |
 | **Background** | 1px autoplay loop without controls for ambient sound beds. | Hidden background audio that should start automatically inside an experience. |

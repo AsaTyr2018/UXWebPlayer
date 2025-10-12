@@ -266,3 +266,13 @@
 **Docs:** README updated with player variant guidance
 **Rollback Plan:** Revert the player variant commit to restore the single-layout player
 **Refs:** N/A
+
+## [2025-10-13 16:00] Restructure large embed layout
+**Change Type:** Normal Change  
+**Why:** Align the large player variant with the specified playlist and visualization layout  
+**What changed:** Updated the embed player markup to place the playlist on the left, introduced a right-side visualization pane with transport controls beneath it, refreshed the associated styling, and documented the adjusted layout  
+**Impact:** Large embeds now surface the new two-column layout; medium, small, and background variants retain their existing behavior  
+**Testing:** `npm run test -- --run`  
+**Docs:** README variant table updated  
+**Rollback Plan:** Revert the embed player script, stylesheet, README, and changelog updates  
+**Refs:** N/A

@@ -254,13 +254,26 @@ const renderStandardPlayback = (payload, variant) => {
     list.appendChild(item);
   });
 
-  playbackSection.append(nowPlaying, audio, feedback, list);
-
   if (variant === 'large') {
+    const playlistColumn = document.createElement('div');
+    playlistColumn.className = 'player-large-playlist';
+    playlistColumn.appendChild(list);
+
     const visualization = document.createElement('div');
     visualization.className = 'player-visualization-placeholder';
     visualization.innerHTML = '<span aria-hidden="true">Visualization coming soon</span>';
-    playbackSection.appendChild(visualization);
+
+    const transport = document.createElement('div');
+    transport.className = 'player-transport';
+    transport.append(nowPlaying, audio, feedback);
+
+    const rightColumn = document.createElement('div');
+    rightColumn.className = 'player-large-right';
+    rightColumn.append(visualization, transport);
+
+    playbackSection.append(playlistColumn, rightColumn);
+  } else {
+    playbackSection.append(nowPlaying, audio, feedback, list);
   }
 
   root.appendChild(playbackSection);
