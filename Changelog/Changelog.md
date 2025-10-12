@@ -246,3 +246,13 @@
 **Docs:** README updated with analytics snapshot details  
 **Rollback Plan:** Revert the analytics snapshot commit and restore the previous metrics-only payload  
 **Refs:** N/A
+
+## [2025-10-14 09:30] Refresh analytics feed and reactive branding theme
+**Change Type:** Normal Change  
+**Why:** Replace demo analytics data with live metrics and ensure branding changes update the admin theme immediately  
+**What changed:** Recomputed analytics snapshots from playlist, asset, and endpoint stores with persisted deltas, overhauled branding token application to drive CSS variables, and expanded Vitest coverage for both features  
+**Impact:** Analytics now reflect real library activity while branding edits instantly retheme the console; existing stores remain compatible  
+**Testing:** `npm run test`  
+**Docs:** README updated with live analytics and branding token behaviour  
+**Rollback Plan:** Revert the analytics/branding refresh commit to restore the previous static metrics and styling behaviour  
+**Refs:** N/A

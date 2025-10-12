@@ -51,6 +51,76 @@ const NAV_SECTIONS: NavSection[] = [
 
 const ACCESS_API_BASE = '/api/access';
 const LIBRARY_API_BASE = '/api/library';
+
+const DEFAULT_ACCENT = '#2563eb';
+const DEFAULT_BACKGROUND = '#ffffff';
+
+type RgbColor = { r: number; g: number; b: number };
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const normalizeHex = (value: string | undefined, fallback: string): string => {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+
+  const trimmed = value.trim();
+  const match = /^#?([0-9a-fA-F]{6})$/.exec(trimmed);
+  return match ? `#${match[1].toLowerCase()}` : fallback;
+};
+
+const hexToRgb = (hex: string): RgbColor => {
+  const normalized = normalizeHex(hex, DEFAULT_ACCENT).replace('#', '');
+  const value = Number.parseInt(normalized, 16);
+  return {
+    r: (value >> 16) & 0xff,
+    g: (value >> 8) & 0xff,
+    b: value & 0xff
+  };
+};
+
+const rgbToHex = (rgb: RgbColor): string => {
+  const toChannel = (channel: number) => channel.toString(16).padStart(2, '0');
+  return `#${toChannel(rgb.r)}${toChannel(rgb.g)}${toChannel(rgb.b)}`;
+};
+
+const mixHex = (colorA: string, colorB: string, weight: number): string => {
+  const clamped = clamp(weight, 0, 1);
+  const a = hexToRgb(colorA);
+  const b = hexToRgb(colorB);
+  const mix = (channelA: number, channelB: number) =>
+    Math.round(channelA * (1 - clamped) + channelB * clamped);
+  return rgbToHex({ r: mix(a.r, b.r), g: mix(a.g, b.g), b: mix(a.b, b.b) });
+};
+
+const lightenHex = (hex: string, amount: number) => mixHex(hex, '#ffffff', clamp(amount, 0, 1));
+const darkenHex = (hex: string, amount: number) => mixHex(hex, '#000000', clamp(amount, 0, 1));
+
+const toRgba = (hex: string, alpha: number) => {
+  const rgb = hexToRgb(hex);
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${clamp(alpha, 0, 1)})`;
+};
+
+const getLuminance = (rgb: RgbColor) => {
+  const normalize = (channel: number) => {
+    const ratio = channel / 255;
+    return ratio <= 0.03928 ? ratio / 12.92 : Math.pow((ratio + 0.055) / 1.055, 2.4);
+  };
+
+  const r = normalize(rgb.r);
+  const g = normalize(rgb.g);
+  const b = normalize(rgb.b);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+
+const pickTextColors = (backgroundHex: string) => {
+  const luminance = getLuminance(hexToRgb(backgroundHex));
+  if (luminance > 0.6) {
+    return { text: '#0f172a', muted: '#475569' };
+  }
+
+  return { text: '#e2e8f0', muted: '#94a3b8' };
+};
 const SESSION_STORAGE_KEY = 'ux-admin-session-token';
 
 type MediaLibraryStatePayload = {
@@ -1174,6 +1244,7 @@ export class UxAdminApp extends LitElement {
     const merged = this.mergeAdminData(value);
     const oldValue = this._data;
     this._data = merged;
+    this.applyBrandingTheme(merged.branding);
     this.requestUpdate('data', oldValue);
   }
 
@@ -1412,6 +1483,7 @@ export class UxAdminApp extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    this.applyBrandingTheme(this.data.branding);
     this.bootstrapFromWindow();
     void this.restoreSession();
   }
@@ -2892,6 +2964,51 @@ export class UxAdminApp extends LitElement {
         </span>
       </article>
     `;
+  }
+
+  private applyBrandingTheme(settings: AdminData['branding']) {
+    const accent = normalizeHex(settings.accentColor, DEFAULT_ACCENT);
+    const background = normalizeHex(settings.backgroundColor, DEFAULT_BACKGROUND);
+    const intensity = clamp(settings.tokenOverrides ?? 0, 0, 12);
+
+    const accentSoftAlpha = 0.12 + intensity * 0.025;
+    const accentStrongAlpha = 0.2 + intensity * 0.035;
+    const tintAlpha = 0.08 + intensity * 0.015;
+    const borderAlpha = 0.18 + intensity * 0.02;
+
+    const sidebarBase = settings.theme === 'dark' ? background : accent;
+    const sidebar = settings.theme === 'dark'
+      ? darkenHex(sidebarBase, 0.7)
+      : darkenHex(sidebarBase, 0.55);
+    const sidebarMuted = settings.theme === 'dark'
+      ? darkenHex(sidebarBase, 0.45)
+      : darkenHex(sidebarBase, 0.35);
+
+    const surfaceAlt = settings.theme === 'dark'
+      ? darkenHex(background, 0.12 + intensity * 0.02)
+      : lightenHex(background, 0.1 + intensity * 0.015);
+    const tintBase = settings.theme === 'dark'
+      ? lightenHex(background, 0.1)
+      : darkenHex(background, 0.1);
+    const borderBase = settings.theme === 'dark'
+      ? lightenHex(background, 0.3)
+      : darkenHex(background, 0.2);
+
+    const textColors = pickTextColors(background);
+
+    this.style.setProperty('--accent', accent);
+    this.style.setProperty('--accent-soft', toRgba(accent, accentSoftAlpha));
+    this.style.setProperty('--accent-strong', toRgba(accent, accentStrongAlpha));
+    this.style.setProperty('--surface', background);
+    this.style.setProperty('--surface-alt', surfaceAlt);
+    this.style.setProperty('--surface-tint', toRgba(tintBase, tintAlpha));
+    this.style.setProperty('--border', toRgba(borderBase, borderAlpha));
+    this.style.setProperty('--bg', sidebar);
+    this.style.setProperty('--bg-muted', sidebarMuted);
+    this.style.setProperty('--text', textColors.text);
+    this.style.setProperty('--text-muted', textColors.muted);
+    this.style.fontFamily = settings.fontFamily;
+    this.setAttribute('data-theme', settings.theme);
   }
 
   private setBrandingFormFromSettings(settings: AdminData['branding']) {

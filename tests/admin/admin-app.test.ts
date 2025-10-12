@@ -410,6 +410,31 @@ describe('ux-admin-app', () => {
     expect(values).toContainEqual(['Logo', 'https://cdn.example.com/logo.svg']);
   });
 
+  it('applies branding tokens to host styles when settings change', async () => {
+    const element = document.createElement('ux-admin-app');
+    document.body.appendChild(element);
+
+    const state = (globalThis as any).__TEST_LIBRARY_STATE__ as TestLibraryState;
+    state.branding = {
+      theme: 'custom',
+      accentColor: '#10b981',
+      backgroundColor: '#111827',
+      logo: undefined,
+      fontFamily: 'Space Grotesk',
+      tokenOverrides: 3
+    };
+
+    await flush(element);
+    await loginAsDefaultAdmin(element);
+    await renderBrandingPage(element as any);
+
+    const computed = getComputedStyle(element);
+    expect(computed.getPropertyValue('--accent').trim()).toBe('#10b981');
+    expect(computed.getPropertyValue('--surface').trim()).toBe('#111827');
+    expect(element.getAttribute('data-theme')).toBe('custom');
+    expect(element.style.fontFamily.replace(/"/g, '')).toBe('Space Grotesk');
+  });
+
   it('updates branding settings through the API and refreshes the summary', async () => {
     const element = document.createElement('ux-admin-app');
     document.body.appendChild(element);
