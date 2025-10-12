@@ -6,12 +6,61 @@ const flush = async (element: Element) => {
   await (element as any).updateComplete;
 };
 
+const loginAsDefaultAdmin = async (element: Element) => {
+  const root = element.shadowRoot;
+  if (!root) {
+    throw new Error('shadowRoot not ready');
+  }
+
+  const usernameInput = root.querySelector('#login-username') as HTMLInputElement | null;
+  const passwordInput = root.querySelector('#login-password') as HTMLInputElement | null;
+
+  if (!usernameInput || !passwordInput) {
+    throw new Error('Login inputs not found');
+  }
+
+  usernameInput.value = 'admin';
+  usernameInput.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+
+  passwordInput.value = 'admin';
+  passwordInput.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+
+  const submitButton =
+    (root.querySelector('[data-testid="global-login-form"] button[type="submit"]') as HTMLButtonElement | null) ??
+    (root.querySelector('[data-testid="access-login-form"] button[type="submit"]') as HTMLButtonElement | null);
+
+  if (!submitButton) {
+    throw new Error('Login submit button not found');
+  }
+
+  submitButton.click();
+
+  await flush(element);
+};
+
 describe('ux-admin-app', () => {
+  it('requires authentication before showing dashboard', async () => {
+    const element = document.createElement('ux-admin-app');
+    document.body.appendChild(element);
+
+    await flush(element);
+
+    const loginForm = element.shadowRoot?.querySelector('[data-testid="global-login-form"]');
+    expect(loginForm).toBeTruthy();
+    expect(element.shadowRoot?.querySelector('.dashboard')).toBeNull();
+
+    await loginAsDefaultAdmin(element);
+
+    expect(element.shadowRoot?.querySelector('.dashboard')).not.toBeNull();
+  });
+
   it('renders stat cards using metrics data', async () => {
     const element = document.createElement('ux-admin-app');
     document.body.appendChild(element);
 
     await flush(element);
+
+    await loginAsDefaultAdmin(element);
 
     const statCards = element.shadowRoot?.querySelectorAll('.stat-card');
     expect(statCards?.length).toBe(4);
@@ -28,6 +77,8 @@ describe('ux-admin-app', () => {
 
     await flush(element);
 
+    await loginAsDefaultAdmin(element);
+
     const emptyState = element.shadowRoot?.querySelector('[data-testid="queue-empty"]');
     expect(emptyState?.textContent).toMatch(/No playlists waiting to publish/);
   });
@@ -37,6 +88,8 @@ describe('ux-admin-app', () => {
     document.body.appendChild(element);
 
     await flush(element);
+
+    await loginAsDefaultAdmin(element);
 
     const mediaNav = element.shadowRoot?.querySelector('[data-page="media-library"]') as HTMLButtonElement;
     mediaNav.click();
@@ -67,6 +120,8 @@ describe('ux-admin-app', () => {
 
     await flush(element);
 
+    await loginAsDefaultAdmin(element);
+
     const rows = element.shadowRoot?.querySelectorAll('tbody tr');
     expect(rows?.length).toBeGreaterThanOrEqual(1);
   });
@@ -77,23 +132,10 @@ describe('ux-admin-app', () => {
 
     await flush(element);
 
+    await loginAsDefaultAdmin(element);
+
     const accessNav = element.shadowRoot?.querySelector('[data-page="access-control"]') as HTMLButtonElement;
     accessNav.click();
-
-    await flush(element);
-
-    const usernameInput = element.shadowRoot?.querySelector('#login-username') as HTMLInputElement;
-    usernameInput.value = 'admin';
-    usernameInput.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-
-    const passwordInput = element.shadowRoot?.querySelector('#login-password') as HTMLInputElement;
-    passwordInput.value = 'admin';
-    passwordInput.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-
-    const submitButton = element.shadowRoot?.querySelector(
-      '[data-testid="access-login-form"] button[type="submit"]'
-    ) as HTMLButtonElement;
-    submitButton.click();
 
     await flush(element);
 
