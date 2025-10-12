@@ -2328,7 +2328,11 @@ export class UxAdminApp extends LitElement {
               @change=${this.handleEndpointVariantChange}
             >
               ${ENDPOINT_VARIANT_ORDER.map(
-                (variant) => html`<option value=${variant}>${ENDPOINT_VARIANT_LABELS[variant]}</option>`
+                (variant) => html`
+                  <option value=${variant} ?selected=${variant === this.endpointFormVariant}>
+                    ${ENDPOINT_VARIANT_LABELS[variant]}
+                  </option>
+                `
               )}
             </select>
             <span class="helper">Choose the embed footprint for this endpoint.</span>

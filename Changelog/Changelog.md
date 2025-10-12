@@ -278,11 +278,21 @@
 **Refs:** N/A
 
 ## [2025-10-14 19:00] Normalize endpoint player variant selection
-**Change Type:** Normal Change  
-**Why:** Large player embeds reverted to medium when creating or editing endpoints  
-**What changed:** Lowercased and defaulted player variant coercion, normalized API payloads inside the admin console, and expanded Vitest coverage for large variant selection and legacy data  
-**Impact:** Admins can reliably choose the large player layout; existing endpoints with capitalized variants load with the correct footprint  
-**Testing:** `npm run test`  
-**Docs:** N/A (existing guidance still accurate)  
-**Rollback Plan:** Revert the normalization commit  
+**Change Type:** Normal Change
+**Why:** Large player embeds reverted to medium when creating or editing endpoints
+**What changed:** Lowercased and defaulted player variant coercion, normalized API payloads inside the admin console, and expanded Vitest coverage for large variant selection and legacy data
+**Impact:** Admins can reliably choose the large player layout; existing endpoints with capitalized variants load with the correct footprint
+**Testing:** `npm run test`
+**Docs:** N/A (existing guidance still accurate)
+**Rollback Plan:** Revert the normalization commit
+**Refs:** N/A
+
+## [2025-10-14 20:49] Fix endpoint layout selection during edits
+**Change Type:** Normal Change
+**Why:** Editing an endpoint reset the player layout dropdown to Large regardless of the saved value
+**What changed:** Ensured the player layout select marks the saved variant as selected and added a regression test covering edit flows
+**Impact:** Admins now see and preserve the correct player layout when editing endpoints; no backward-compatibility concerns
+**Testing:** `npm test -- tests/admin/admin-app.test.ts`
+**Docs:** N/A (existing guidance still accurate)
+**Rollback Plan:** Revert this commit
 **Refs:** N/A
