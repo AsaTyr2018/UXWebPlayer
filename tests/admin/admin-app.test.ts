@@ -744,6 +744,71 @@ describe('ux-admin-app', () => {
     expect(state.endpoints[0]?.playerVariant).toBe('large');
   });
 
+  it('updates the player variant when editing an endpoint', async () => {
+    const element = document.createElement('ux-admin-app') as any;
+    document.body.appendChild(element);
+
+    const state = (globalThis as any).__TEST_LIBRARY_STATE__ as TestLibraryState;
+    state.playlists = [
+      {
+        id: 'pl-edit',
+        name: 'Lobby Loop',
+        status: 'published',
+        updatedAt: '2025-01-05T09:00:00Z',
+        owner: 'Team Admin',
+        itemCount: 4,
+        endpointCount: 1
+      }
+    ];
+    state.endpoints = [
+      {
+        id: 'endpoint-edit',
+        name: 'Atrium Screen',
+        slug: '123456789',
+        status: 'operational',
+        playlistId: 'pl-edit',
+        playerVariant: 'medium',
+        lastSync: '2025-01-05T10:00:00Z',
+        latencyMs: undefined
+      }
+    ];
+
+    await flush(element);
+
+    await loginAsDefaultAdmin(element);
+
+    const endpointsNav = element.shadowRoot?.querySelector('[data-page="endpoints"]') as HTMLButtonElement;
+    endpointsNav?.click();
+
+    await flush(element);
+
+    const editButton = element.shadowRoot?.querySelector('[data-testid="endpoint-edit"]') as HTMLButtonElement;
+    expect(element.data.endpoints[0]?.playerVariant).toBe('medium');
+    editButton?.click();
+
+    await flush(element);
+
+    const variantSelect = element.shadowRoot?.querySelector('#endpoint-variant') as HTMLSelectElement;
+    expect(variantSelect.value).toBe('medium');
+
+    variantSelect.value = 'large';
+    variantSelect.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+
+    const submitButton = element.shadowRoot?.querySelector('[data-testid="endpoint-form"] button.primary') as HTMLButtonElement;
+    submitButton.click();
+
+    await flush(element);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await flush(element);
+
+    const variantLabel = element.shadowRoot
+      ?.querySelector('.endpoint-variant-label')
+      ?.textContent?.trim();
+    expect(variantLabel).toBe('Large player');
+
+    expect(state.endpoints[0]?.playerVariant).toBe('large');
+  });
+
   it('normalizes endpoint variants received from the API', async () => {
     const element = document.createElement('ux-admin-app') as any;
     document.body.appendChild(element);
