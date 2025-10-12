@@ -66,7 +66,8 @@ describe('embed endpoints', () => {
     const endpoint = createEndpoint({
       name: 'Lobby',
       playlistId: playlist.id,
-      playerVariant: 'large'
+      playerVariant: 'large',
+      visualizer: { mode: 'random', randomizeIntervalSeconds: 45 }
     });
     updateEndpoint(endpoint.id, { status: 'operational' });
 
@@ -76,6 +77,10 @@ describe('embed endpoints', () => {
     expect(response.status).toBe(200);
     expect(response.body.endpoint.status).toBe('operational');
     expect(response.body.endpoint.playerVariant).toBe('large');
+    expect(response.body.endpoint.visualizer).toMatchObject({
+      mode: 'random',
+      randomizeIntervalSeconds: 45
+    });
     expect(response.body.playlist.name).toBe('In-Store');
     expect(response.body.tracks).toHaveLength(1);
     expect(response.body.tracks[0]).toMatchObject({
@@ -96,6 +101,10 @@ describe('embed endpoints', () => {
     expect(response.status).toBe(200);
     expect(response.body.endpoint.status).toBe('pending');
     expect(response.body.endpoint.playerVariant).toBe('medium');
+    expect(response.body.endpoint.visualizer).toMatchObject({
+      mode: expect.any(String),
+      randomizeIntervalSeconds: expect.any(Number)
+    });
     expect(response.body.tracks).toEqual([]);
   });
 

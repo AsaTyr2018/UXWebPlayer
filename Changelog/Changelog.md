@@ -306,3 +306,13 @@
 **Docs:** README feature list and media workflow updated  
 **Rollback Plan:** Revert the artwork support commit to restore the previous placeholder behavior and API payload  
 **Refs:** N/A
+
+## [2025-10-12 22:09] Cover admin visualizer configuration
+**Change Type:** Normal Change  
+**Why:** Validate endpoint visualizer controls and document the persisted settings.  
+**What changed:** Added helper utilities and Vitest cases exercising visualizer mode and rotation interval workflows, updated endpoint fixtures to include visualizer data, refreshed README guidance, and recorded the update.  
+**Impact:** Improves confidence that admin edits honor visualizer choices; documentation now reflects the stored configuration. No backward-compatibility concerns.  
+**Testing:** `npx vitest run --reporter=basic`  
+**Docs:** README updated with visualizer details.  
+**Rollback Plan:** Revert the commit introducing the visualizer test/doc updates.  
+**Refs:** N/A

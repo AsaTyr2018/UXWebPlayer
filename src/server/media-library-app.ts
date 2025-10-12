@@ -36,8 +36,11 @@ import { getBrandingSettings, updateBrandingSettings } from './branding-service.
 import type { BrandingSettings } from '../admin/types.js';
 import {
   DEFAULT_ENDPOINT_PLAYER_VARIANT,
+  DEFAULT_ENDPOINT_VISUALIZER_SETTINGS,
   isEndpointPlayerVariant,
-  type EndpointPlayerVariant
+  normalizeEndpointVisualizerSettings,
+  type EndpointPlayerVariant,
+  type EndpointVisualizerSettings
 } from '../types/endpoint.js';
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -107,6 +110,7 @@ const mapEndpointToResponse = (endpoint: ReturnType<typeof listEndpoints>[number
   slug: endpoint.slug,
   playlistId: endpoint.playlistId,
   playerVariant: endpoint.playerVariant,
+  visualizer: endpoint.visualizer,
   status: endpoint.status,
   lastSync: endpoint.lastSync ?? 'Never',
   latencyMs: endpoint.latencyMs ?? undefined
@@ -137,6 +141,22 @@ const normalizePlayerVariant = (value: unknown): EndpointPlayerVariant => {
   }
 
   throw new EndpointValidationError('Invalid player variant.');
+};
+
+const normalizeVisualizerSettingsInput = (value: unknown): EndpointVisualizerSettings => {
+  if (value === undefined || value === null || value === '') {
+    return DEFAULT_ENDPOINT_VISUALIZER_SETTINGS;
+  }
+
+  if (typeof value === 'string') {
+    return normalizeEndpointVisualizerSettings({ mode: value });
+  }
+
+  if (typeof value === 'object') {
+    return normalizeEndpointVisualizerSettings(value);
+  }
+
+  throw new EndpointValidationError('Invalid visualizer configuration.');
 };
 
 const assertPlaylistExists = (playlistId: string | null) => {
@@ -276,7 +296,7 @@ export const createMediaLibraryRouter = () => {
 
   router.post('/endpoints', (request, response, next) => {
     try {
-      const { name, playlistId, playerVariant } = request.body ?? {};
+      const { name, playlistId, playerVariant, visualizer } = request.body ?? {};
       if (typeof name !== 'string') {
         throw new EndpointValidationError('Endpoint name is required.');
       }
@@ -287,7 +307,8 @@ export const createMediaLibraryRouter = () => {
       const endpoint = createEndpoint({
         name,
         playlistId: normalizedPlaylistId,
-        playerVariant: normalizePlayerVariant(playerVariant)
+        playerVariant: normalizePlayerVariant(playerVariant),
+        visualizer: normalizeVisualizerSettingsInput(visualizer)
       });
       response.status(201).json({ endpoint: mapEndpointToResponse(endpoint) });
     } catch (error) {
@@ -304,7 +325,7 @@ export const createMediaLibraryRouter = () => {
       }
 
       const updates: Parameters<typeof updateEndpoint>[1] = {};
-      const { name, playlistId, status, playerVariant } = request.body ?? {};
+      const { name, playlistId, status, playerVariant, visualizer } = request.body ?? {};
 
       if (name !== undefined) {
         if (typeof name !== 'string') {
@@ -322,6 +343,10 @@ export const createMediaLibraryRouter = () => {
 
       if (playerVariant !== undefined) {
         updates.playerVariant = normalizePlayerVariant(playerVariant);
+      }
+
+      if (visualizer !== undefined) {
+        updates.visualizer = normalizeVisualizerSettingsInput(visualizer);
       }
 
       if (status !== undefined) {

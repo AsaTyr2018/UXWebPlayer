@@ -8,7 +8,8 @@ Embeddable multimedia library designed to deliver audio and video playback insid
 - In-app metadata editing for tracks and videos, including artist, genre, and descriptive fields.
 - Endpoint management to mint unique embed URLs, connect them to playlists, and switch embeds on or off instantly.
 - Configurable player variants (large, medium, small, background audio) selectable per endpoint to match the embed footprint.
-- Large player variant surfaces uploaded cover art for five seconds before blending into the visualization pane so feature walls stay dynamic.
+- Large player variant surfaces uploaded cover art for five seconds before blending into the configurable visualization pane so feature walls stay dynamic.【F:public/assets/scripts/embed-player.js†L1-L420】
+- Audio visualization pack ships with 25 presets, optional thirty-second random rotation, and palette/intensity overrides that can be tuned per endpoint.【F:public/assets/data/visualizer-presets.json†L1-L413】【F:public/assets/scripts/embed-player.js†L1-L420】
 - Dedicated `/embed/:slug` player shell so published endpoints never expose the admin console.
 - Embed links mirror the current admin origin so staging and production hosts stay aligned.
 - Public streaming API that delivers playlist metadata and tracks to active embeds.
@@ -73,11 +74,11 @@ The standalone embed served from `/embed/:slug` renders a lightweight player she
 
 ### Player variants
 
-Each endpoint stores a `playerVariant` so operators can choose the embed footprint when creating or editing the record. The admin console surfaces the variant selector, the API persists the choice, and the embed runtime swaps layouts at fetch time.【F:src/admin/components/admin-app.ts†L2148-L2337】【F:src/server/media-library-app.ts†L258-L315】【F:public/assets/scripts/embed-player.js†L1-L214】
+Each endpoint stores `playerVariant` and `visualizer` settings so operators can choose both the embed footprint and audio-reactive canvas treatment. The admin console surfaces selectors for the layout and visualization (including random rotations), the API persists the choices, and the embed runtime instantiates the requested layout with the configured visualizer pack.【F:src/admin/components/admin-app.ts†L2360-L2654】【F:src/server/media-library-app.ts†L297-L360】【F:src/types/endpoint.ts†L1-L39】【F:public/assets/scripts/embed-player.js†L1-L420】
 
 | Variant | Layout | Typical use |
 | --- | --- | --- |
-| **Large** | Playlist navigation on the left, visualization or cover panel on the right with transport controls directly beneath it. | Lobby displays and feature walls that showcase upcoming visualization work. |
+| **Large** | Playlist navigation on the left, configurable visualization or cover panel on the right with transport controls directly beneath it. | Lobby displays and feature walls that showcase responsive audio visualizations. |
 | **Medium** | Default playlist list with standard controls. | General-purpose embeds where the full queue is useful. |
 | **Small** | Compact transport controls without the visible playlist. | Space-constrained sidebars or mobile surfaces. |
 | **Background** | 1px autoplay loop without controls for ambient sound beds. | Hidden background audio that should start automatically inside an experience. |

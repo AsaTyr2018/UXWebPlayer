@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '../../src/admin/components/admin-app';
 import { createEmptyAdminData } from '../../src/admin/state/empty-admin-data';
 import type { EndpointPlayerVariant } from '../../src/admin/types.js';
+import { normalizeEndpointVisualizerSettings } from '../../src/types/endpoint.js';
 
 const flush = async (element: Element) => {
   await (element as any).updateComplete;
@@ -41,6 +42,9 @@ const coerceVariant = (value: unknown): EndpointPlayerVariant => {
 
   return 'medium';
 };
+
+const createVisualizerSettings = (value?: Record<string, unknown>) =>
+  normalizeEndpointVisualizerSettings(value ?? undefined);
 
 type TestLibraryState = {
   metrics: {
@@ -163,6 +167,7 @@ beforeEach(() => {
         slug,
         playlistId: body.playlistId ?? null,
         playerVariant: coerceVariant(body.playerVariant),
+        visualizer: normalizeEndpointVisualizerSettings(body.visualizer),
         status: 'pending',
         lastSync: 'Never',
         latencyMs: undefined
@@ -193,6 +198,10 @@ beforeEach(() => {
 
       if (body.playerVariant !== undefined) {
         endpoint.playerVariant = coerceVariant(body.playerVariant);
+      }
+
+      if (body.visualizer !== undefined) {
+        endpoint.visualizer = normalizeEndpointVisualizerSettings(body.visualizer);
       }
 
       if (body.status !== undefined) {
@@ -569,6 +578,7 @@ describe('ux-admin-app', () => {
         status: 'operational',
         playlistId: null,
         playerVariant: 'medium',
+        visualizer: createVisualizerSettings(),
         lastSync: '2025-01-01T12:00:00Z',
         latencyMs: 42
       }
@@ -661,6 +671,10 @@ describe('ux-admin-app', () => {
     variantSelect.value = 'small';
     variantSelect.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
 
+    const visualizerSelect = element.shadowRoot?.querySelector('#endpoint-visualizer') as HTMLSelectElement;
+    visualizerSelect.value = 'bars-midnight';
+    visualizerSelect.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+
     const submitButton = element.shadowRoot?.querySelector('[data-testid="endpoint-form"] button.primary') as HTMLButtonElement;
     submitButton.click();
 
@@ -678,6 +692,10 @@ describe('ux-admin-app', () => {
     expect(variantLabel).toBe('Small player');
 
     expect(state.endpoints[0]?.playerVariant).toBe('small');
+    expect(state.endpoints[0]?.visualizer.mode).toBe('bars-midnight');
+
+    const defaults = createVisualizerSettings();
+    expect(state.endpoints[0]?.visualizer.randomizeIntervalSeconds).toBe(defaults.randomizeIntervalSeconds);
 
     const embedCell = rows?.[0]?.querySelector('.embed-url');
     const embedText = embedCell?.textContent?.replace('Copy', '').trim();
@@ -768,6 +786,7 @@ describe('ux-admin-app', () => {
         status: 'operational',
         playlistId: 'pl-edit',
         playerVariant: 'medium',
+        visualizer: createVisualizerSettings({ mode: 'bars-mirage' }),
         lastSync: '2025-01-05T10:00:00Z',
         latencyMs: undefined
       }
@@ -791,8 +810,14 @@ describe('ux-admin-app', () => {
     const variantSelect = element.shadowRoot?.querySelector('#endpoint-variant') as HTMLSelectElement;
     expect(variantSelect.value).toBe('medium');
 
+    const visualizerSelect = element.shadowRoot?.querySelector('#endpoint-visualizer') as HTMLSelectElement;
+    expect(visualizerSelect.value).toBe('bars-mirage');
+
     variantSelect.value = 'large';
     variantSelect.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+
+    visualizerSelect.value = 'bars-classic';
+    visualizerSelect.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
 
     const submitButton = element.shadowRoot?.querySelector('[data-testid="endpoint-form"] button.primary') as HTMLButtonElement;
     submitButton.click();
@@ -807,6 +832,7 @@ describe('ux-admin-app', () => {
     expect(variantLabel).toBe('Large player');
 
     expect(state.endpoints[0]?.playerVariant).toBe('large');
+    expect(state.endpoints[0]?.visualizer.mode).toBe('bars-classic');
   });
 
   it('normalizes endpoint variants received from the API', async () => {
@@ -822,6 +848,7 @@ describe('ux-admin-app', () => {
         status: 'operational',
         playlistId: null,
         playerVariant: 'Large' as any,
+        visualizer: createVisualizerSettings({ mode: 'bars-midnight' }),
         lastSync: '2025-01-03T10:00:00Z',
         latencyMs: undefined
       }
@@ -847,6 +874,79 @@ describe('ux-admin-app', () => {
 
     const variantSelect = element.shadowRoot?.querySelector('#endpoint-variant') as HTMLSelectElement;
     expect(variantSelect.value).toBe('large');
+
+    const visualizerSelect = element.shadowRoot?.querySelector('#endpoint-visualizer') as HTMLSelectElement;
+    expect(visualizerSelect.value).toBe('bars-midnight');
+  });
+
+  it('allows configuring random visualizer rotation intervals', async () => {
+    const element = document.createElement('ux-admin-app') as any;
+    document.body.appendChild(element);
+
+    const state = (globalThis as any).__TEST_LIBRARY_STATE__ as TestLibraryState;
+    state.playlists = [
+      {
+        id: 'pl-random',
+        name: 'Ambient Loop',
+        status: 'published',
+        updatedAt: '2025-01-04T10:00:00Z',
+        owner: 'Team Admin',
+        itemCount: 6,
+        endpointCount: 1
+      }
+    ];
+    state.endpoints = [
+      {
+        id: 'endpoint-random',
+        name: 'Gallery Display',
+        slug: '444333222',
+        status: 'operational',
+        playlistId: 'pl-random',
+        playerVariant: 'large',
+        visualizer: createVisualizerSettings({ mode: 'random', randomizeIntervalSeconds: 90 }),
+        lastSync: '2025-01-04T11:00:00Z',
+        latencyMs: 32
+      }
+    ];
+
+    await flush(element);
+
+    await loginAsDefaultAdmin(element);
+
+    const endpointsNav = element.shadowRoot?.querySelector('[data-page="endpoints"]') as HTMLButtonElement;
+    endpointsNav?.click();
+
+    await flush(element);
+
+    const editButton = element.shadowRoot?.querySelector('[data-testid="endpoint-edit"]') as HTMLButtonElement;
+    editButton?.click();
+
+    await flush(element);
+
+    const visualizerSelect = element.shadowRoot?.querySelector('#endpoint-visualizer') as HTMLSelectElement;
+    expect(visualizerSelect.value).toBe('random');
+
+    const intervalLabel = element.shadowRoot?.querySelector(
+      'label[for="endpoint-visualizer-interval"]'
+    ) as HTMLLabelElement;
+    expect(intervalLabel?.hasAttribute('hidden')).toBe(false);
+
+    const intervalInput = element.shadowRoot?.querySelector('#endpoint-visualizer-interval') as HTMLInputElement;
+    expect(intervalInput?.disabled).toBe(false);
+    expect(intervalInput?.value).toBe('90');
+
+    intervalInput.value = '45';
+    intervalInput.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+
+    const submitButton = element.shadowRoot?.querySelector('[data-testid="endpoint-form"] button.primary') as HTMLButtonElement;
+    submitButton.click();
+
+    await flush(element);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await flush(element);
+
+    expect(state.endpoints[0]?.visualizer.mode).toBe('random');
+    expect(state.endpoints[0]?.visualizer.randomizeIntervalSeconds).toBe(45);
   });
 
   it('allows activating and disabling an endpoint', async () => {
@@ -873,6 +973,7 @@ describe('ux-admin-app', () => {
         status: 'pending',
         playlistId: 'pl-toggle',
         playerVariant: 'medium',
+        visualizer: createVisualizerSettings({ mode: 'bars-classic' }),
         lastSync: 'Never',
         latencyMs: undefined
       }
