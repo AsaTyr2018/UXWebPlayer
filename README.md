@@ -14,6 +14,16 @@ Embeddable multimedia library designed to deliver audio and video playback insid
 <div data-uxplayer></div>
 ```
 
+## Admin Console Prototype
+The Lit + Vite-based admin dashboard mirrors the layout defined in [`docs/demo`](docs/demo) and will evolve into the authenticated management surface.
+
+```bash
+npm install
+npm run dev
+```
+
+The dev server hosts `index.html`, which mounts the `<ux-admin-app>` Web Component showcasing the planned dashboard shell.
+
 ## Configuration
 | Setting | Default | Description |
 | --- | --- | --- |
@@ -26,7 +36,18 @@ Embeddable multimedia library designed to deliver audio and video playback insid
 - Admin dashboard demo layout: open [`docs/demo/index.html`](docs/demo/index.html) directly in a browser for a responsive walkthrough of the planned console shell.
 
 ## Development
-Documentation is under construction. Planned topics include build tooling, testing, embedding examples, and wiring the admin console to live data sources.
+### Tooling
+- [`lit`](https://lit.dev) powers the Web Components used across the player and admin dashboard.
+- [`vite`](https://vitejs.dev) handles development and bundling for the admin console prototype.
+
+### Scripts
+```bash
+npm run dev    # Start the Vite dev server for the admin console
+npm run build  # Produce the static admin bundle in dist/admin
+npm run test   # Execute Vitest unit tests
+```
+
+Documentation is under construction. Planned topics include player build tooling, embedding examples, and wiring the admin console to live data sources.
 
 ## Changelog
 See [`Changelog/Changelog.md`](Changelog/Changelog.md).

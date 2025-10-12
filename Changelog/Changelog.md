@@ -76,3 +76,13 @@
 **Docs:** README and `docs/demo/README.md` updated  
 **Rollback Plan:** Remove the `docs/demo/` directory and revert README entry  
 **Refs:** N/A
+
+## [2025-10-11 02:00] Prototype admin console with Lit and Vite
+**Change Type:** Normal Change  
+**Why:** Implement the interactive admin shell aligned with the approved technology plan  
+**What changed:** Added a Lit-based `<ux-admin-app>` component mirroring the dashboard demo, configured Vite/TypeScript tooling, and seeded Vitest coverage  
+**Impact:** Introduces a runnable admin console prototype served via Vite; no impact on existing embed snippets  
+**Testing:** `npm run test`  
+**Docs:** README updated with admin console instructions and tooling overview  
+**Rollback Plan:** Revert the admin console component, tooling files, and README/Changelog updates  
+**Refs:** N/A
