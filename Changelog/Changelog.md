@@ -236,3 +236,13 @@
 **Docs:** README updated with branding editor details  
 **Rollback Plan:** Revert the branding workflow commit and remove the new API route and UI form  
 **Refs:** N/A
+
+## [2025-10-13 20:10] Add global and per-endpoint analytics snapshots
+**Change Type:** Normal Change  
+**Why:** Capture analytics trends at both the account and endpoint level for richer reporting  
+**What changed:** Extended the analytics service to persist global and per-endpoint metrics, updated the admin payload and UI to render the new snapshot, refreshed Vitest coverage, and documented the JSON store shape  
+**Impact:** Administrators now see combined and per-endpoint analytics without breaking existing data; stored JSON gains new fields but is backward compatible via sanitization  
+**Testing:** `npm run test`  
+**Docs:** README updated with analytics snapshot details  
+**Rollback Plan:** Revert the analytics snapshot commit and restore the previous metrics-only payload  
+**Refs:** N/A

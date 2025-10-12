@@ -35,7 +35,7 @@ npm run dev   # Start the Vite dev server with the embedded access control API
 
 The dev server hosts `index.html`, which mounts the `<ux-admin-app>` Web Component showcasing the multi-page admin experience. It binds to `0.0.0.0:2222` for container and LAN access.
 
-Analytics metrics are stored in `data/analytics.json` (override with `ANALYTICS_DB_PATH`) and branding preferences live in `data/branding.json` (override with `BRANDING_DB_PATH`). Both stores are created automatically with sensible defaults and can be edited directly from the admin console or automated scripts.【F:src/server/analytics-service.ts†L5-L116】【F:src/server/branding-service.ts†L5-L123】
+Analytics snapshots—covering global trends and per-endpoint engagement—are stored in `data/analytics.json` (override with `ANALYTICS_DB_PATH`). Branding preferences live in `data/branding.json` (override with `BRANDING_DB_PATH`). Both stores are created automatically with sensible defaults and can be edited directly from the admin console or automated scripts.【F:src/server/analytics-service.ts†L5-L350】【F:src/server/branding-service.ts†L5-L123】
 
 ### Data bootstrapping
 Provide runtime data by assigning the `data` property on `<ux-admin-app>` or by defining `window.__UX_ADMIN_DATA__` before the component upgrades. The structure must match `AdminData` in [`src/admin/types.ts`](src/admin/types.ts). When no data is provided the UI surfaces zeroed metrics and guidance for connecting the live admin API.【F:README.md†L29-L33】【F:src/admin/state/empty-admin-data.ts†L1-L28】

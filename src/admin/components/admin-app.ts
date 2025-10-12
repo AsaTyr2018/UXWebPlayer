@@ -8,6 +8,7 @@ import type {
   AdminPage,
   AdminPlaylist,
   AdminUser,
+  AnalyticsMetric,
   AuditEvent,
   DiagnosticCheck,
   MediaAssetType
@@ -962,6 +963,11 @@ export class UxAdminApp extends LitElement {
       font-weight: 600;
     }
 
+    .analytics-content {
+      display: grid;
+      gap: 24px;
+    }
+
     .analytics-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -976,6 +982,44 @@ export class UxAdminApp extends LitElement {
       box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
       display: grid;
       gap: 12px;
+    }
+
+    .endpoint-analytics-list {
+      display: grid;
+      gap: 20px;
+    }
+
+    .endpoint-analytics {
+      background: var(--surface);
+      border-radius: 16px;
+      border: 1px solid rgba(15, 23, 42, 0.05);
+      box-shadow: 0 14px 30px rgba(15, 23, 42, 0.06);
+      padding: 20px;
+      display: grid;
+      gap: 16px;
+    }
+
+    .endpoint-analytics header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .endpoint-analytics h3 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .endpoint-slug {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .endpoint-analytics-grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .analytics-value {
@@ -1054,6 +1098,10 @@ export class UxAdminApp extends LitElement {
       .analytics-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
+
+      .endpoint-analytics-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
 
     @media (max-width: 640px) {
@@ -1095,6 +1143,15 @@ export class UxAdminApp extends LitElement {
       }
 
       .analytics-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .endpoint-analytics header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .endpoint-analytics-grid {
         grid-template-columns: 1fr;
       }
 
@@ -2760,7 +2817,11 @@ export class UxAdminApp extends LitElement {
   }
 
   private renderAnalytics() {
-    if (!this.data.analytics.length) {
+    const { analytics } = this.data;
+    const hasGlobalMetrics = analytics.global.length > 0;
+    const hasEndpointMetrics = analytics.perEndpoint.length > 0;
+
+    if (!hasGlobalMetrics && !hasEndpointMetrics) {
       return html`
         <section class="page-panel" aria-label="Analytics overview">
           <header>
@@ -2787,22 +2848,49 @@ export class UxAdminApp extends LitElement {
           </div>
           <button type="button">Configure analytics</button>
         </header>
-        <div class="analytics-grid">
-          ${this.data.analytics.map(
-            (metric) => html`
-              <article class="analytics-card">
-                <h3>${metric.label}</h3>
-                <span class="analytics-value">
-                  ${metric.unit ? `${metric.value}${metric.unit}` : this.numberFormatter.format(metric.value)}
-                </span>
-                <span class="analytics-delta ${metric.delta >= 0 ? 'positive' : 'negative'}">
-                  ${metric.delta >= 0 ? '+' : ''}${metric.delta}% vs last period
-                </span>
-              </article>
-            `
-          )}
+        <div class="analytics-content">
+          ${hasGlobalMetrics
+            ? html`
+                <div class="analytics-grid" aria-label="Global analytics">
+                  ${analytics.global.map((metric) => this.renderAnalyticsMetric(metric, 'h3'))}
+                </div>
+              `
+            : null}
+          ${hasEndpointMetrics
+            ? html`
+                <div class="endpoint-analytics-list" aria-label="Endpoint analytics">
+                  ${analytics.perEndpoint.map(
+                    (endpoint) => html`
+                      <article class="endpoint-analytics">
+                        <header>
+                          <h3>${endpoint.endpointName}</h3>
+                          <span class="endpoint-slug">/${endpoint.endpointSlug}</span>
+                        </header>
+                        <div class="endpoint-analytics-grid">
+                          ${endpoint.metrics.map((metric) => this.renderAnalyticsMetric(metric, 'h4'))}
+                        </div>
+                      </article>
+                    `
+                  )}
+                </div>
+              `
+            : null}
         </div>
       </section>
+    `;
+  }
+
+  private renderAnalyticsMetric(metric: AnalyticsMetric, heading: 'h3' | 'h4') {
+    return html`
+      <article class="analytics-card">
+        ${heading === 'h3' ? html`<h3>${metric.label}</h3>` : html`<h4>${metric.label}</h4>`}
+        <span class="analytics-value">
+          ${metric.unit ? `${metric.value}${metric.unit}` : this.numberFormatter.format(metric.value)}
+        </span>
+        <span class="analytics-delta ${metric.delta >= 0 ? 'positive' : 'negative'}">
+          ${metric.delta >= 0 ? '+' : ''}${metric.delta}% vs last period
+        </span>
+      </article>
     `;
   }
 
