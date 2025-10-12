@@ -6,6 +6,7 @@ import type {
   AdminEndpoint,
   AdminPage,
   AdminPlaylist,
+  AdminUser,
   AuditEvent,
   DiagnosticCheck
 } from '../types.js';
@@ -45,10 +46,29 @@ const NAV_SECTIONS: NavSection[] = [
   }
 ];
 
-const DEFAULT_ADMIN_CREDENTIALS = {
-  username: 'admin',
-  password: 'admin'
-} as const;
+const ACCESS_API_BASE = '/api/access';
+const SESSION_STORAGE_KEY = 'ux-admin-session-token';
+
+type AccessUsersPayload = {
+  users: AdminUser[];
+  showDefaultAdminWarning: boolean;
+};
+
+type AccessSessionPayload = AccessUsersPayload & {
+  user: AdminUser;
+};
+
+type AccessLoginPayload = AccessSessionPayload & {
+  token: string;
+};
+
+type AccessUserCreatedPayload = AccessUsersPayload & {
+  user: AdminUser;
+};
+
+type ApiErrorPayload = {
+  message?: string;
+};
 
 @customElement('ux-admin-app')
 export class UxAdminApp extends LitElement {
@@ -634,6 +654,38 @@ export class UxAdminApp extends LitElement {
       font-size: 14px;
     }
 
+    .form-success {
+      margin: 0 0 16px;
+      color: var(--positive);
+      font-size: 14px;
+    }
+
+    .invite-form {
+      display: grid;
+      gap: 16px;
+      margin-bottom: 24px;
+      padding: 20px;
+      border-radius: 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+
+    .invite-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .invite-grid .form-group {
+      margin: 0;
+    }
+
+    .invite-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+
     .signed-in-banner {
       margin: 0 0 16px;
       font-size: 14px;
@@ -663,6 +715,11 @@ export class UxAdminApp extends LitElement {
     .callout.warning {
       background: var(--warning-soft);
       border-color: rgba(245, 158, 11, 0.32);
+    }
+
+    .callout.positive {
+      background: var(--positive-soft);
+      border-color: rgba(5, 150, 105, 0.28);
     }
 
     .page-grid {
@@ -783,6 +840,10 @@ export class UxAdminApp extends LitElement {
         grid-template-columns: minmax(0, 1fr);
       }
 
+      .invite-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
       .analytics-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
@@ -815,6 +876,10 @@ export class UxAdminApp extends LitElement {
       }
 
       .stats {
+        grid-template-columns: 1fr;
+      }
+
+      .invite-grid {
         grid-template-columns: 1fr;
       }
 
@@ -865,6 +930,39 @@ export class UxAdminApp extends LitElement {
   @state()
   private declare showDefaultAdminWarning: boolean;
 
+  @state()
+  private declare sessionToken: string | null;
+
+  @state()
+  private declare loginPending: boolean;
+
+  @state()
+  private declare isLoadingUsers: boolean;
+
+  @state()
+  private declare inviteFormOpen: boolean;
+
+  @state()
+  private declare inviteName: string;
+
+  @state()
+  private declare inviteUsername: string;
+
+  @state()
+  private declare inviteEmail: string;
+
+  @state()
+  private declare invitePassword: string;
+
+  @state()
+  private declare inviteSubmitting: boolean;
+
+  @state()
+  private declare inviteError: string | null;
+
+  @state()
+  private declare inviteSuccess: string | null;
+
   constructor() {
     super();
     this.activePage = 'dashboard';
@@ -874,11 +972,23 @@ export class UxAdminApp extends LitElement {
     this.loginPassword = '';
     this.loginError = null;
     this.showDefaultAdminWarning = false;
+    this.sessionToken = null;
+    this.loginPending = false;
+    this.isLoadingUsers = false;
+    this.inviteFormOpen = false;
+    this.inviteName = '';
+    this.inviteUsername = '';
+    this.inviteEmail = '';
+    this.invitePassword = '';
+    this.inviteSubmitting = false;
+    this.inviteError = null;
+    this.inviteSuccess = null;
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.bootstrapFromWindow();
+    void this.restoreSession();
   }
 
   protected render() {
@@ -1423,8 +1533,9 @@ export class UxAdminApp extends LitElement {
               ?disabled=${!this.isAuthenticated}
               aria-disabled=${!this.isAuthenticated ? 'true' : 'false'}
               title=${this.isAuthenticated ? 'Invite user' : 'Sign in to invite users'}
+              @click=${this.handleInviteToggle}
             >
-              Invite user
+              ${this.inviteFormOpen ? 'Cancel invite' : 'Invite user'}
             </button>
             ${this.isAuthenticated
               ? html`<button class="secondary" type="button" @click=${this.handleSignOut}>Sign out</button>`
@@ -1435,6 +1546,7 @@ export class UxAdminApp extends LitElement {
           ? html`
               ${this.renderSignedInBanner()}
               ${this.showDefaultAdminWarning ? this.renderDefaultAdminWarning() : nothing}
+              ${this.renderInviteForm()}
               ${this.renderUsersTable()}
             `
           : this.renderLoginCard()}
@@ -1486,7 +1598,9 @@ export class UxAdminApp extends LitElement {
         ${this.loginError
           ? html`<p class="form-error" id=${errorId} role="alert">${this.loginError}</p>`
           : nothing}
-        <button class="primary" type="submit">Sign in</button>
+        <button class="primary" type="submit" ?disabled=${this.loginPending}>
+          ${this.loginPending ? 'Signing in…' : 'Sign in'}
+        </button>
       </form>
     `;
   }
@@ -1495,7 +1609,7 @@ export class UxAdminApp extends LitElement {
     return this.renderLoginForm(
       'access-login-form',
       'Sign in to manage access',
-      'Use the default admin credentials on first launch.'
+      'Use the default admin credentials (admin/admin) on first launch.'
     );
   }
 
@@ -1516,7 +1630,101 @@ export class UxAdminApp extends LitElement {
     `;
   }
 
+  private renderInviteForm() {
+    if (!this.isAuthenticated) {
+      return nothing;
+    }
+
+    if (this.inviteSuccess && !this.inviteFormOpen) {
+      return html`<p class="form-success" role="status">${this.inviteSuccess}</p>`;
+    }
+
+    if (!this.inviteFormOpen) {
+      return nothing;
+    }
+
+    const errorId = 'invite-error';
+    const describedBy = this.inviteError ? errorId : '';
+
+    return html`
+      <form
+        class="invite-form"
+        @submit=${this.handleInviteSubmit}
+        aria-describedby=${describedBy || nothing}
+      >
+        <div class="invite-grid">
+          <div class="form-group">
+            <label for="invite-name">Full name</label>
+            <input
+              id="invite-name"
+              name="name"
+              type="text"
+              autocomplete="name"
+              .value=${this.inviteName}
+              @input=${this.handleInviteInput}
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="invite-username">Username</label>
+            <input
+              id="invite-username"
+              name="username"
+              type="text"
+              autocomplete="username"
+              .value=${this.inviteUsername}
+              @input=${this.handleInviteInput}
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="invite-email">Email</label>
+            <input
+              id="invite-email"
+              name="email"
+              type="email"
+              autocomplete="email"
+              .value=${this.inviteEmail}
+              @input=${this.handleInviteInput}
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="invite-password">Password</label>
+            <input
+              id="invite-password"
+              name="password"
+              type="password"
+              autocomplete="new-password"
+              .value=${this.invitePassword}
+              @input=${this.handleInviteInput}
+              required
+            />
+          </div>
+        </div>
+        ${this.inviteError
+          ? html`<p class="form-error" id=${errorId} role="alert">${this.inviteError}</p>`
+          : nothing}
+        <div class="invite-actions">
+          <button class="secondary" type="button" @click=${this.handleInviteToggle}>Cancel</button>
+          <button class="primary" type="submit" ?disabled=${this.inviteSubmitting}>
+            ${this.inviteSubmitting ? 'Creating…' : 'Create admin'}
+          </button>
+        </div>
+      </form>
+    `;
+  }
+
   private renderUsersTable() {
+    if (this.isLoadingUsers) {
+      return html`
+        <div class="empty-state">
+          <strong>Loading users…</strong>
+          Fetching the latest administrators.
+        </div>
+      `;
+    }
+
     if (!this.data.users.length) {
       return html`
         <div class="empty-state">
@@ -1549,7 +1757,7 @@ export class UxAdminApp extends LitElement {
                     ${this.formatUserStatus(user.status)}
                   </span>
                 </td>
-                <td>${user.lastActive}</td>
+                <td>${this.formatLastActive(user.lastActive)}</td>
               </tr>
             `
           )}
@@ -1575,8 +1783,12 @@ export class UxAdminApp extends LitElement {
     }
   }
 
-  private handleLoginSubmit(event: Event) {
+  private async handleLoginSubmit(event: Event) {
     event.preventDefault();
+    if (this.loginPending) {
+      return;
+    }
+
     const username = this.loginUsername.trim();
     const password = this.loginPassword;
 
@@ -1585,31 +1797,275 @@ export class UxAdminApp extends LitElement {
       return;
     }
 
-    const normalizedUsername = username.toLowerCase();
-    const isDefaultAdmin =
-      normalizedUsername === DEFAULT_ADMIN_CREDENTIALS.username.toLowerCase() &&
-      password === DEFAULT_ADMIN_CREDENTIALS.password;
+    await this.authenticate(username, password);
+  }
 
-    if (!isDefaultAdmin) {
-      this.loginError = 'Invalid credentials.';
-      return;
+  private async handleSignOut() {
+    try {
+      if (this.sessionToken) {
+        await this.authorizedFetch(`${ACCESS_API_BASE}/logout`, { method: 'POST' });
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('Failed to invalidate session token', error);
+    } finally {
+      this.clearSessionToken();
+      this.isAuthenticated = false;
+      this.authenticatedUser = null;
+      this.loginUsername = '';
+      this.loginPassword = '';
+      this.loginError = null;
+      this.showDefaultAdminWarning = false;
+      this.data = createEmptyAdminData();
+      this.inviteFormOpen = false;
+      this.resetInviteForm();
+      this.inviteSuccess = null;
     }
+  }
 
+  private async authenticate(username: string, password: string) {
+    this.loginPending = true;
+    this.loginError = null;
+
+    try {
+      const response = await fetch(`${ACCESS_API_BASE}/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username, password })
+      });
+
+      if (!response.ok) {
+        throw new Error(await this.readApiError(response));
+      }
+
+      const payload = (await response.json()) as AccessLoginPayload;
+      this.persistSession(payload.token);
+      this.applySessionState(payload);
+      this.inviteFormOpen = false;
+      this.resetInviteForm();
+      this.inviteSuccess = null;
+      this.inviteError = null;
+    } catch (error) {
+      this.loginError = this.getErrorMessage(error, 'Unable to sign in.');
+    } finally {
+      this.loginPending = false;
+    }
+  }
+
+  private applySessionState(payload: AccessSessionPayload) {
+    this.applyUsersState(payload);
     this.isAuthenticated = true;
-    this.authenticatedUser = username;
-    this.showDefaultAdminWarning = isDefaultAdmin;
+    this.authenticatedUser = payload.user.name;
     this.loginUsername = '';
     this.loginPassword = '';
     this.loginError = null;
   }
 
-  private handleSignOut() {
-    this.isAuthenticated = false;
-    this.authenticatedUser = null;
-    this.loginUsername = '';
-    this.loginPassword = '';
-    this.loginError = null;
-    this.showDefaultAdminWarning = false;
+  private applyUsersState(payload: AccessUsersPayload) {
+    this.data = { ...this.data, users: payload.users };
+    this.showDefaultAdminWarning = payload.showDefaultAdminWarning;
+    this.isLoadingUsers = false;
+  }
+
+  private resetInviteForm(clearSuccess = true) {
+    this.inviteName = '';
+    this.inviteUsername = '';
+    this.inviteEmail = '';
+    this.invitePassword = '';
+    this.inviteSubmitting = false;
+    this.inviteError = null;
+    if (clearSuccess) {
+      this.inviteSuccess = null;
+    }
+  }
+
+  private handleInviteToggle() {
+    if (!this.isAuthenticated) {
+      return;
+    }
+
+    if (this.inviteFormOpen) {
+      this.inviteFormOpen = false;
+      this.resetInviteForm(false);
+    } else {
+      this.inviteFormOpen = true;
+      this.resetInviteForm();
+    }
+  }
+
+  private handleInviteInput(event: Event) {
+    const target = event.target as HTMLInputElement | null;
+    if (!target) {
+      return;
+    }
+
+    switch (target.name) {
+      case 'name':
+        this.inviteName = target.value;
+        break;
+      case 'username':
+        this.inviteUsername = target.value;
+        break;
+      case 'email':
+        this.inviteEmail = target.value;
+        break;
+      case 'password':
+        this.invitePassword = target.value;
+        break;
+      default:
+        break;
+    }
+
+    if (this.inviteError) {
+      this.inviteError = null;
+    }
+  }
+
+  private async handleInviteSubmit(event: Event) {
+    event.preventDefault();
+    if (this.inviteSubmitting) {
+      return;
+    }
+
+    const name = this.inviteName.trim();
+    const username = this.inviteUsername.trim();
+    const email = this.inviteEmail.trim();
+    const password = this.invitePassword;
+
+    if (!name || !username || !email || !password) {
+      this.inviteError = 'Fill in all invite fields.';
+      return;
+    }
+
+    this.inviteSubmitting = true;
+    this.inviteError = null;
+
+    try {
+      const response = await this.authorizedFetch(`${ACCESS_API_BASE}/users`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ name, username, email, password })
+      });
+
+      if (!response.ok) {
+        throw new Error(await this.readApiError(response));
+      }
+
+      const payload = (await response.json()) as AccessUserCreatedPayload;
+      this.applyUsersState(payload);
+      this.inviteSuccess = `Created admin account for ${payload.user.name}.`;
+      this.inviteFormOpen = false;
+      this.resetInviteForm(false);
+    } catch (error) {
+      this.inviteError = this.getErrorMessage(error, 'Unable to create admin account.');
+    } finally {
+      this.inviteSubmitting = false;
+    }
+  }
+
+  private async restoreSession() {
+    let token: string | null = null;
+    try {
+      token = window.sessionStorage.getItem(SESSION_STORAGE_KEY);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('Unable to access session storage', error);
+    }
+
+    if (!token) {
+      return;
+    }
+
+    this.sessionToken = token;
+    this.isLoadingUsers = true;
+
+    try {
+      const response = await this.authorizedFetch(`${ACCESS_API_BASE}/session`);
+      if (!response.ok) {
+        throw new Error(await this.readApiError(response));
+      }
+
+      const payload = (await response.json()) as AccessSessionPayload;
+      this.applySessionState(payload);
+    } catch (error) {
+      this.clearSessionToken();
+      this.isAuthenticated = false;
+      this.authenticatedUser = null;
+      // eslint-disable-next-line no-console
+      console.warn('Session restoration failed', error);
+    } finally {
+      this.isLoadingUsers = false;
+    }
+  }
+
+  private authorizedFetch(input: RequestInfo, init: RequestInit = {}) {
+    const headers = new Headers(init.headers ?? {});
+    if (this.sessionToken) {
+      headers.set('Authorization', `Bearer ${this.sessionToken}`);
+    }
+
+    return fetch(input, {
+      ...init,
+      headers
+    });
+  }
+
+  private async readApiError(response: Response): Promise<string> {
+    try {
+      const payload = (await response.json()) as ApiErrorPayload;
+      if (payload?.message) {
+        return payload.message;
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('Failed to parse API error response', error);
+    }
+
+    if (response.status >= 500) {
+      return 'Access control service is unavailable.';
+    }
+
+    if (response.status === 401) {
+      return 'Authentication required.';
+    }
+
+    if (response.status === 403) {
+      return 'You do not have permission to perform this action.';
+    }
+
+    return 'Request failed. Please try again.';
+  }
+
+  private getErrorMessage(error: unknown, fallback: string): string {
+    if (error instanceof Error && error.message) {
+      return error.message;
+    }
+
+    return fallback;
+  }
+
+  private persistSession(token: string) {
+    this.sessionToken = token;
+    try {
+      window.sessionStorage.setItem(SESSION_STORAGE_KEY, token);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('Unable to persist session token', error);
+    }
+  }
+
+  private clearSessionToken() {
+    this.sessionToken = null;
+    try {
+      window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('Unable to clear session token', error);
+    }
   }
 
   private get userDisplayName(): string {
@@ -2075,6 +2531,22 @@ export class UxAdminApp extends LitElement {
       default:
         return role;
     }
+  }
+
+  private formatLastActive(value: string): string {
+    if (!value || value === 'Never') {
+      return 'Never';
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+
+    return date.toLocaleString(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    });
   }
 
   private mapUserTone(status: string): Tone {

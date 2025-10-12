@@ -19,6 +19,7 @@ The Lit + Vite-based admin dashboard now implements the full navigation shell (D
 
 ```bash
 npm install
+npm run api   # Start the SQLite access control API on http://0.0.0.0:4000
 npm run dev
 ```
 
@@ -28,9 +29,20 @@ The dev server hosts `index.html`, which mounts the `<ux-admin-app>` Web Compone
 Provide runtime data by assigning the `data` property on `<ux-admin-app>` or by defining `window.__UX_ADMIN_DATA__` before the component upgrades. The structure must match `AdminData` in [`src/admin/types.ts`](src/admin/types.ts). When no data is provided the UI surfaces zeroed metrics and guidance for connecting the live admin API.
 
 ### Authentication & access control
-- The admin console now opens with a sign-in dialog; authenticate to unlock navigation and management tools.
-- Default credentials: `admin` / `admin` (replace this bootstrap account after first login).
-- After signing in, the **Access Control** page reminds operators to retire the default admin and provides a sign-out action.
+- Admin accounts live in `data/admin.sqlite` (override with `ADMIN_DB_PATH`). Passwords are hashed with bcrypt before storage.
+- Sign in through the Access Control dialog; a session token is stored in `sessionStorage` and revoked on sign-out.
+- Default credentials remain `admin` / `admin` so operators can bootstrap their first login before inviting teammates.
+- After signing in, use the **Invite user** form to provision additional administrators and retire the default account when ready.
+
+### Access Control API
+- `npm run api` launches the Express-based access service on `http://0.0.0.0:4000`.
+- The API issues short-lived bearer tokens and persists admin accounts to SQLite. Each restart recreates the default admin if no other accounts exist.
+- Configure storage and port with environment variables:
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `PORT` | `4000` | Port for the access control API server. |
+| `ADMIN_DB_PATH` | `data/admin.sqlite` | Filesystem path for the SQLite database (`:memory:` supported for testing). |
 
 ## Configuration
 | Setting | Default | Description |
@@ -53,6 +65,7 @@ Provide runtime data by assigning the `data` property on `<ux-admin-app>` or by 
 npm run dev    # Start the Vite dev server on http://0.0.0.0:2222
 npm run build  # Produce the static admin bundle in dist/admin
 npm run test   # Execute Vitest unit tests
+npm run api    # Run the SQLite-backed access control API locally
 ```
 
 Documentation is under construction. Planned topics include player build tooling, embedding examples, and wiring the admin console to live data sources.

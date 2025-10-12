@@ -1,10 +1,87 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '../../src/admin/components/admin-app';
 import { createEmptyAdminData } from '../../src/admin/state/empty-admin-data';
 
 const flush = async (element: Element) => {
   await (element as any).updateComplete;
+  await Promise.resolve();
+  await (element as any).updateComplete;
 };
+
+const createDefaultUser = () => ({
+  id: 'user-default-admin',
+  name: 'Default Admin',
+  email: 'admin@localhost',
+  role: 'owner',
+  status: 'active' as const,
+  lastActive: new Date().toISOString()
+});
+
+const createLoginPayload = () => {
+  const user = createDefaultUser();
+  return {
+    token: 'test-session-token',
+    user,
+    users: [user],
+    showDefaultAdminWarning: true
+  };
+};
+
+const createJsonResponse = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' }
+  });
+
+let fetchMock: ReturnType<typeof vi.fn>;
+
+beforeEach(() => {
+  sessionStorage.clear();
+  fetchMock = vi.fn(async (input, init) => {
+    const url = typeof input === 'string' ? input : input.url;
+
+    if (url.endsWith('/api/access/login') && (!init || init.method === 'POST')) {
+      return createJsonResponse(createLoginPayload());
+    }
+
+    if (url.endsWith('/api/access/logout')) {
+      return new Response(null, { status: 204 });
+    }
+
+    if (url.endsWith('/api/access/session')) {
+      return new Response(JSON.stringify({ message: 'Session expired.' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (url.endsWith('/api/access/users')) {
+      return createJsonResponse({
+        user: {
+          id: 'user-new-admin',
+          name: 'New Admin',
+          email: 'new@admin.test',
+          role: 'admin',
+          status: 'active',
+          lastActive: new Date().toISOString()
+        },
+        users: [createDefaultUser()],
+        showDefaultAdminWarning: false
+      }, 201);
+    }
+
+    return createJsonResponse({ message: 'Not found' }, 404);
+  });
+
+  // @ts-expect-error - override fetch for tests
+  global.fetch = fetchMock;
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  document.body.innerHTML = '';
+  sessionStorage.clear();
+});
 
 const loginAsDefaultAdmin = async (element: Element) => {
   const root = element.shadowRoot;
@@ -35,6 +112,8 @@ const loginAsDefaultAdmin = async (element: Element) => {
 
   submitButton.click();
 
+  await flush(element);
+  await new Promise((resolve) => setTimeout(resolve, 0));
   await flush(element);
 };
 
