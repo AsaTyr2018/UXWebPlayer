@@ -7,6 +7,7 @@ Embeddable multimedia library designed to deliver audio and video playback insid
 - Server-backed media library that stores uploads by playlist and media type.
 - In-app metadata editing for tracks and videos, including artist, genre, and descriptive fields.
 - Endpoint management to mint unique embed URLs and connect them to playlists.
+- Dedicated `/embed/:slug` player shell so published endpoints never expose the admin console.
 - Embed links mirror the current admin origin so staging and production hosts stay aligned.
 
 ## Quick Start
@@ -58,6 +59,8 @@ Provide runtime data by assigning the `data` property on `<ux-admin-app>` or by 
    ></iframe>
    ```
 3. Optionally load the standalone player bundle if you need to tailor the UI beyond the iframe; the UMD build bootstraps any `<div data-uxplayer>` container and can fetch the stream from the assigned endpoint slug via your integration layer.【F:README.md†L13-L18】【F:src/admin/components/admin-app.ts†L2552-L2583】
+
+The standalone embed served from `/embed/:slug` renders a lightweight player shell without admin navigation. It injects the resolved slug into the page so your integration can hydrate the playlist client without exposing the console chrome.【F:public/embed.html†L1-L22】【F:public/assets/scripts/embed-player.js†L1-L22】
 
 ### Media library workflow
 1. Create an empty playlist from the **Playlists** page and choose whether it manages music or video assets.
