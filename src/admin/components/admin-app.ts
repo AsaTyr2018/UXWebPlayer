@@ -48,6 +48,7 @@ const NAV_SECTIONS: NavSection[] = [
 
 const ACCESS_API_BASE = '/api/access';
 const SESSION_STORAGE_KEY = 'ux-admin-session-token';
+const EMBED_BASE_URL = 'https://player.uxwebplayer/embed/';
 
 type AccessUsersPayload = {
   users: AdminUser[];
@@ -518,6 +519,118 @@ export class UxAdminApp extends LitElement {
       border-bottom: none;
     }
 
+    .endpoint-form {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      background: var(--surface-alt);
+      display: grid;
+      gap: 16px;
+    }
+
+    .endpoint-form header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .endpoint-form h3 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .endpoint-form-grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .endpoint-form label {
+      display: grid;
+      gap: 6px;
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .endpoint-form input,
+    .endpoint-form select {
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      font: inherit;
+      background: var(--surface);
+      color: var(--text);
+    }
+
+    .endpoint-form footer {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+
+    .endpoint-form .helper {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .endpoint-form .error {
+      color: var(--negative);
+      font-size: 13px;
+    }
+
+    .embed-url {
+      font-family: 'Roboto Mono', 'SFMono-Regular', Menlo, monospace;
+      font-size: 13px;
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 8px 12px;
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      overflow-wrap: anywhere;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .embed-url button {
+      padding: 0;
+      background: none;
+      border: none;
+      color: var(--accent);
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .table-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .table-actions button {
+      font-size: 13px;
+      padding: 0;
+      background: none;
+      border: none;
+      color: var(--accent);
+      cursor: pointer;
+    }
+
+    .table-actions button.danger {
+      color: var(--negative);
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
     .list {
       display: grid;
       gap: 16px;
@@ -963,6 +1076,32 @@ export class UxAdminApp extends LitElement {
   @state()
   private declare inviteSuccess: string | null;
 
+  @state()
+  private declare endpointFormOpen: boolean;
+
+  @state()
+  private declare endpointFormMode: 'create' | 'edit';
+
+  @state()
+  private declare endpointFormName: string;
+
+  @state()
+  private declare endpointFormPlaylistId: string;
+
+  @state()
+  private declare endpointFormSlug: string;
+
+  @state()
+  private declare endpointEditingId: string | null;
+
+  @state()
+  private declare endpointFormError: string | null;
+
+  @state()
+  private declare endpointCopyFeedback: string | null;
+
+  private endpointCopyTimeout: number | null = null;
+
   constructor() {
     super();
     this.activePage = 'dashboard';
@@ -983,12 +1122,28 @@ export class UxAdminApp extends LitElement {
     this.inviteSubmitting = false;
     this.inviteError = null;
     this.inviteSuccess = null;
+    this.endpointFormOpen = false;
+    this.endpointFormMode = 'create';
+    this.endpointFormName = '';
+    this.endpointFormPlaylistId = '';
+    this.endpointFormSlug = '';
+    this.endpointEditingId = null;
+    this.endpointFormError = null;
+    this.endpointCopyFeedback = null;
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.bootstrapFromWindow();
     void this.restoreSession();
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this.endpointCopyTimeout !== null) {
+      window.clearTimeout(this.endpointCopyTimeout);
+      this.endpointCopyTimeout = null;
+    }
   }
 
   protected render() {
@@ -1206,22 +1361,25 @@ export class UxAdminApp extends LitElement {
     return html`
       <ul class="list" aria-label="Endpoint health">
         ${endpoints.map(
-          (endpoint) => html`
+          (endpoint) => {
+            const playlistName = this.resolvePlaylistName(endpoint.playlistId ?? null);
+            return html`
             <li>
               <div>
                 <p class="list-title">${endpoint.name}</p>
                 <p class="list-subtitle ${endpoint.status === 'degraded' ? 'warning' : ''}">
-                  ${endpoint.lastSync}
-                  ${endpoint.latencyMs
-                    ? html`· ${endpoint.latencyMs} ms latency`
-                    : nothing}
+                  ${playlistName === 'Unassigned' ? 'No playlist assigned' : `Playlist: ${playlistName}`}
+                  · ${endpoint.lastSync}
+                  ${endpoint.latencyMs ? html`· ${endpoint.latencyMs} ms latency` : nothing}
                 </p>
+                <p class="list-subtitle">Embed: ${this.buildEmbedUrl(endpoint.slug)}</p>
               </div>
               <span class="badge ${this.mapEndpointTone(endpoint.status)}">
                 ${this.formatEndpointStatus(endpoint.status)}
               </span>
             </li>
-          `
+          `;
+          }
         )}
       </ul>
     `;
@@ -1389,63 +1547,370 @@ export class UxAdminApp extends LitElement {
   }
 
   private renderEndpoints() {
-    if (!this.data.endpoints.length) {
-      return html`
-        <section class="page-panel" aria-label="Endpoint management">
-          <header>
-            <div>
-              <h2>Endpoints</h2>
-              <p>Provision embeds that stay in sync with your playlists.</p>
-            </div>
-            <button type="button">Add endpoint</button>
-          </header>
+    const endpoints = this.data.endpoints;
+    const copyFeedback = this.endpointCopyFeedback
+      ? html`<p class="sr-only" role="status" aria-live="polite">${this.endpointCopyFeedback}</p>`
+      : nothing;
+
+    const table = endpoints.length
+      ? html`
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Endpoint</th>
+                <th scope="col">Playlist</th>
+                <th scope="col">Embed URL</th>
+                <th scope="col">Status</th>
+                <th scope="col">Last Sync</th>
+                <th scope="col">Latency</th>
+                <th scope="col">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${endpoints.map((endpoint) => this.renderEndpointRow(endpoint))}
+            </tbody>
+          </table>
+        `
+      : html`
           <div class="empty-state">
             <strong>No endpoints defined.</strong>
             Register an endpoint to start embedding the player into external sites.
           </div>
-        </section>
-      `;
-    }
+        `;
 
     return html`
-      <section class="page-panel" aria-label="Endpoints">
+      <section class="page-panel" aria-label="Endpoint management">
         <header>
           <div>
             <h2>Endpoints</h2>
-            <p>Monitor status and deployment targets for each embed endpoint.</p>
+            <p>Provision shareable embeds and assign playlists when you are ready.</p>
           </div>
-          <button type="button">Add endpoint</button>
+          <button type="button" data-testid="endpoint-add-button" @click=${this.openCreateEndpointForm}>
+            Add endpoint
+          </button>
         </header>
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Endpoint</th>
-              <th scope="col">Target</th>
-              <th scope="col">Status</th>
-              <th scope="col">Last Sync</th>
-              <th scope="col">Latency</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${this.data.endpoints.map(
-              (endpoint) => html`
-                <tr>
-                  <td>${endpoint.name}</td>
-                  <td>${endpoint.target}</td>
-                  <td>
-                    <span class="badge ${this.mapEndpointTone(endpoint.status)}">
-                      ${this.formatEndpointStatus(endpoint.status)}
-                    </span>
-                  </td>
-                  <td>${endpoint.lastSync}</td>
-                  <td>${endpoint.latencyMs ? `${endpoint.latencyMs} ms` : '—'}</td>
-                </tr>
-              `
-            )}
-          </tbody>
-        </table>
+        ${this.renderEndpointForm()}
+        ${table}
+        ${copyFeedback}
       </section>
     `;
+  }
+
+  private renderEndpointRow(endpoint: AdminEndpoint) {
+    const playlistName = this.resolvePlaylistName(endpoint.playlistId ?? null);
+    const embedUrl = this.buildEmbedUrl(endpoint.slug);
+
+    return html`
+      <tr>
+        <td>${endpoint.name}</td>
+        <td>${playlistName}</td>
+        <td>
+          <span class="embed-url">
+            ${embedUrl}
+            <button
+              type="button"
+              @click=${() => this.handleCopyEndpointUrl(embedUrl)}
+              data-testid="endpoint-copy-url"
+            >
+              Copy
+            </button>
+          </span>
+        </td>
+        <td>
+          <span class="badge ${this.mapEndpointTone(endpoint.status)}">
+            ${this.formatEndpointStatus(endpoint.status)}
+          </span>
+        </td>
+        <td>${endpoint.lastSync || '—'}</td>
+        <td>${endpoint.latencyMs ? `${endpoint.latencyMs} ms` : '—'}</td>
+        <td>
+          <div class="table-actions">
+            <button type="button" @click=${() => this.openEditEndpointForm(endpoint)} data-testid="endpoint-edit">
+              Edit
+            </button>
+            <button
+              type="button"
+              class="danger"
+              @click=${() => this.handleEndpointDelete(endpoint.id)}
+              data-testid="endpoint-remove"
+            >
+              Remove
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
+  private renderEndpointForm() {
+    if (!this.endpointFormOpen) {
+      return nothing;
+    }
+
+    const isEdit = this.endpointFormMode === 'edit';
+    const embedUrl = this.endpointFormSlug ? this.buildEmbedUrl(this.endpointFormSlug) : '';
+
+    return html`
+      <form class="endpoint-form" data-testid="endpoint-form" @submit=${this.handleEndpointFormSubmit}>
+        <header>
+          <div>
+            <h3>${isEdit ? 'Edit endpoint' : 'Create endpoint'}</h3>
+            <p class="helper">Endpoint ID ${this.endpointFormSlug || 'pending assignment'}</p>
+          </div>
+          <button type="button" class="secondary" @click=${this.closeEndpointForm}>Close</button>
+        </header>
+        <div class="endpoint-form-grid">
+          <label for="endpoint-name">
+            Endpoint name
+            <input
+              id="endpoint-name"
+              type="text"
+              name="endpoint-name"
+              placeholder="Kiosk display, livestream, ..."
+              .value=${this.endpointFormName}
+              @input=${this.handleEndpointNameInput}
+              required
+            />
+          </label>
+          <label for="endpoint-playlist">
+            Assign playlist
+            <select
+              id="endpoint-playlist"
+              name="endpoint-playlist"
+              .value=${this.endpointFormPlaylistId}
+              @change=${this.handleEndpointPlaylistChange}
+            >
+              <option value="">Unassigned</option>
+              ${this.data.playlists.map(
+                (playlist) => html`<option value=${playlist.id}>${playlist.name}</option>`
+              )}
+            </select>
+            <span class="helper">Endpoints can be created empty and linked later.</span>
+          </label>
+          <div>
+            <span class="helper">Embed URL</span>
+            <div class="embed-url">
+              ${embedUrl}
+              <button type="button" @click=${() => this.handleCopyEndpointUrl(embedUrl)} ?disabled=${!embedUrl}>
+                Copy
+              </button>
+            </div>
+          </div>
+        </div>
+        ${this.endpointFormError ? html`<p class="error" role="alert">${this.endpointFormError}</p>` : nothing}
+        <footer>
+          <button type="button" class="secondary" @click=${this.closeEndpointForm}>Cancel</button>
+          <button type="submit" class="primary">${isEdit ? 'Save changes' : 'Create endpoint'}</button>
+        </footer>
+      </form>
+    `;
+  }
+
+  private openCreateEndpointForm() {
+    this.endpointFormMode = 'create';
+    this.endpointEditingId = null;
+    this.endpointFormName = '';
+    this.endpointFormPlaylistId = '';
+    this.endpointFormSlug = this.generateEndpointSlug();
+    this.endpointFormError = null;
+    this.endpointFormOpen = true;
+  }
+
+  private openEditEndpointForm(endpoint: AdminEndpoint) {
+    this.endpointFormMode = 'edit';
+    this.endpointEditingId = endpoint.id;
+    this.endpointFormName = endpoint.name;
+    this.endpointFormPlaylistId = endpoint.playlistId ?? '';
+    this.endpointFormSlug = endpoint.slug;
+    this.endpointFormError = null;
+    this.endpointFormOpen = true;
+  }
+
+  private closeEndpointForm() {
+    this.endpointFormOpen = false;
+    this.endpointEditingId = null;
+    this.endpointFormName = '';
+    this.endpointFormPlaylistId = '';
+    this.endpointFormSlug = '';
+    this.endpointFormError = null;
+  }
+
+  private handleEndpointFormSubmit(event: Event) {
+    event.preventDefault();
+    const name = this.endpointFormName.trim();
+
+    if (!name) {
+      this.endpointFormError = 'Please provide an endpoint name.';
+      return;
+    }
+
+    const playlistId = this.endpointFormPlaylistId || null;
+    const endpoints = [...this.data.endpoints];
+
+    if (this.endpointFormMode === 'create') {
+      let slug = this.endpointFormSlug || this.generateEndpointSlug();
+      const existingSlugs = new Set(endpoints.map((endpoint) => endpoint.slug));
+      while (existingSlugs.has(slug)) {
+        slug = this.generateEndpointSlug();
+      }
+
+      const newEndpoint: AdminEndpoint = {
+        id: this.createEndpointId(),
+        name,
+        slug,
+        playlistId,
+        status: 'pending',
+        lastSync: 'Never',
+        latencyMs: undefined
+      };
+
+      endpoints.push(newEndpoint);
+      this.persistEndpoints(endpoints);
+    } else if (this.endpointFormMode === 'edit' && this.endpointEditingId) {
+      const index = endpoints.findIndex((endpoint) => endpoint.id === this.endpointEditingId);
+
+      if (index === -1) {
+        this.endpointFormError = 'Endpoint no longer exists.';
+        return;
+      }
+
+      endpoints[index] = {
+        ...endpoints[index],
+        name,
+        playlistId
+      };
+
+      this.persistEndpoints(endpoints);
+    }
+
+    this.closeEndpointForm();
+  }
+
+  private handleEndpointNameInput(event: Event) {
+    const target = event.target as HTMLInputElement | null;
+    this.endpointFormName = target?.value ?? '';
+    if (this.endpointFormError) {
+      this.endpointFormError = null;
+    }
+  }
+
+  private handleEndpointPlaylistChange(event: Event) {
+    const target = event.target as HTMLSelectElement | null;
+    this.endpointFormPlaylistId = target?.value ?? '';
+  }
+
+  private handleEndpointDelete(id: string) {
+    const endpoint = this.data.endpoints.find((item) => item.id === id);
+    if (!endpoint) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Remove endpoint "${endpoint.name}"? Existing embeds will stop receiving updates.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const remaining = this.data.endpoints.filter((item) => item.id !== id);
+    this.persistEndpoints(remaining);
+
+    if (this.endpointEditingId === id) {
+      this.closeEndpointForm();
+    }
+  }
+
+  private async handleCopyEndpointUrl(url: string) {
+    if (!url) {
+      return;
+    }
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        this.endpointCopyFeedback = 'Embed URL copied to clipboard.';
+      } else {
+        this.copyTextFallback(url);
+        this.endpointCopyFeedback = 'Embed URL ready to paste.';
+      }
+    } catch (error) {
+      console.error('Failed to copy embed URL', error);
+      this.endpointCopyFeedback = 'Copy failed. Select and copy manually.';
+    }
+
+    if (this.endpointCopyTimeout !== null) {
+      window.clearTimeout(this.endpointCopyTimeout);
+    }
+
+    this.endpointCopyTimeout = window.setTimeout(() => {
+      this.endpointCopyFeedback = null;
+      this.endpointCopyTimeout = null;
+    }, 4000);
+  }
+
+  private copyTextFallback(value: string) {
+    const textarea = document.createElement('textarea');
+    textarea.value = value;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'absolute';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+  }
+
+  private buildEmbedUrl(slug: string): string {
+    return `${EMBED_BASE_URL}${slug}`;
+  }
+
+  private resolvePlaylistName(playlistId: string | null): string {
+    if (!playlistId) {
+      return 'Unassigned';
+    }
+
+    const playlist = this.data.playlists.find((item) => item.id === playlistId);
+    return playlist?.name ?? 'Unassigned';
+  }
+
+  private persistEndpoints(endpoints: AdminEndpoint[]) {
+    const metrics = {
+      ...this.data.metrics,
+      ...this.computeEndpointMetrics(endpoints)
+    };
+
+    this.data = {
+      ...this.data,
+      endpoints,
+      metrics
+    };
+  }
+
+  private computeEndpointMetrics(endpoints: AdminEndpoint[]) {
+    const activeEndpoints = endpoints.filter((endpoint) => endpoint.status === 'operational').length;
+    const endpointsPending = endpoints.filter((endpoint) => endpoint.status === 'pending').length;
+
+    return { activeEndpoints, endpointsPending };
+  }
+
+  private generateEndpointSlug(): string {
+    const existing = new Set(this.data.endpoints.map((endpoint) => endpoint.slug));
+    let candidate = '';
+
+    do {
+      candidate = Math.floor(100_000_000 + Math.random() * 900_000_000).toString();
+    } while (existing.has(candidate));
+
+    return candidate;
+  }
+
+  private createEndpointId(): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+
+    return `endpoint-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   }
 
   private renderAnalytics() {
