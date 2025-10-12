@@ -28,6 +28,8 @@ import {
 } from './endpoint-service.js';
 import type { EndpointStatus } from '../admin/types.js';
 import { assertAuthenticated } from './http-auth.js';
+import { getAnalyticsMetrics } from './analytics-service.js';
+import { getBrandingSettings } from './branding-service.js';
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -164,7 +166,9 @@ export const createMediaLibraryRouter = () => {
         endpointCount: endpointAssignments.get(playlist.id) ?? 0
       })),
       endpoints: endpoints.map(mapEndpointToResponse),
-      mediaLibrary: assets.map(mapAssetToResponse)
+      mediaLibrary: assets.map(mapAssetToResponse),
+      analytics: getAnalyticsMetrics(),
+      branding: getBrandingSettings()
     });
   });
 

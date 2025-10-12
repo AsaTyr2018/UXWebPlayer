@@ -56,6 +56,8 @@ type MediaLibraryStatePayload = {
   playlists: AdminPlaylist[];
   mediaLibrary: AdminData['mediaLibrary'];
   endpoints: AdminEndpoint[];
+  analytics?: AdminData['analytics'];
+  branding?: AdminData['branding'];
 };
 
 type AccessUsersPayload = {
@@ -3295,7 +3297,9 @@ export class UxAdminApp extends LitElement {
         metrics: { ...this.data.metrics, ...payload.metrics },
         endpoints: payload.endpoints,
         playlists: payload.playlists,
-        mediaLibrary: payload.mediaLibrary
+        mediaLibrary: payload.mediaLibrary,
+        analytics: payload.analytics ?? this.data.analytics,
+        branding: payload.branding ?? this.data.branding
       };
 
       if (payload.playlists.length) {

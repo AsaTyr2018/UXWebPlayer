@@ -47,6 +47,8 @@ type TestLibraryState = {
   playlists: ReturnType<typeof createEmptyAdminData>['playlists'];
   mediaLibrary: ReturnType<typeof createEmptyAdminData>['mediaLibrary'];
   endpoints: ReturnType<typeof createEmptyAdminData>['endpoints'];
+  analytics: ReturnType<typeof createEmptyAdminData>['analytics'];
+  branding: ReturnType<typeof createEmptyAdminData>['branding'];
 };
 
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -56,6 +58,7 @@ let endpointCounter: number;
 beforeEach(() => {
   sessionStorage.clear();
   endpointCounter = 0;
+  const empty = createEmptyAdminData();
   libraryState = {
     metrics: {
       mediaAssets: 0,
@@ -69,7 +72,9 @@ beforeEach(() => {
     },
     playlists: [],
     mediaLibrary: [],
-    endpoints: []
+    endpoints: [],
+    analytics: [...empty.analytics],
+    branding: { ...empty.branding }
   };
 
   // @ts-expect-error expose for tests
@@ -214,6 +219,18 @@ afterEach(() => {
   delete globalThis.__TEST_LIBRARY_STATE__;
 });
 
+const renderAnalyticsPage = async (element: HTMLElement & { shadowRoot: ShadowRoot | null }) => {
+  const analyticsNav = element.shadowRoot?.querySelector('[data-page="analytics"]') as HTMLButtonElement;
+  analyticsNav?.click();
+  await flush(element);
+};
+
+const renderBrandingPage = async (element: HTMLElement & { shadowRoot: ShadowRoot | null }) => {
+  const brandingNav = element.shadowRoot?.querySelector('[data-page="branding"]') as HTMLButtonElement;
+  brandingNav?.click();
+  await flush(element);
+};
+
 const loginAsDefaultAdmin = async (element: Element) => {
   const root = element.shadowRoot;
   if (!root) {
@@ -279,6 +296,62 @@ describe('ux-admin-app', () => {
       card.querySelector('.stat-value')?.textContent?.trim()
     );
     expect(values).toContain('0');
+  });
+
+  it('renders analytics metrics from the library state payload', async () => {
+    const element = document.createElement('ux-admin-app');
+    document.body.appendChild(element);
+
+    const state = (globalThis as any).__TEST_LIBRARY_STATE__ as TestLibraryState;
+    state.analytics = [
+      { id: 'plays', label: 'Total plays', value: 1280, delta: 14 },
+      { id: 'completion', label: 'Completion rate', value: 84, delta: 6, unit: '%' }
+    ];
+
+    await flush(element);
+    await loginAsDefaultAdmin(element);
+    await renderAnalyticsPage(element as any);
+
+    const cards = element.shadowRoot?.querySelectorAll('.analytics-card');
+    expect(cards?.length).toBe(2);
+
+    const firstCardText = cards?.[0]?.textContent ?? '';
+    expect(firstCardText).toMatch(/Total plays/);
+    expect(firstCardText.replace(/\s+/g, ' ')).toMatch(/1,280/);
+
+    const secondCardText = cards?.[1]?.textContent ?? '';
+    expect(secondCardText).toMatch(/84%/);
+  });
+
+  it('renders branding settings from the library state payload', async () => {
+    const element = document.createElement('ux-admin-app');
+    document.body.appendChild(element);
+
+    const state = (globalThis as any).__TEST_LIBRARY_STATE__ as TestLibraryState;
+    state.branding = {
+      theme: 'custom',
+      accentColor: '#ef4444',
+      backgroundColor: '#0f172a',
+      logo: 'https://cdn.example.com/logo.svg',
+      fontFamily: 'Space Grotesk',
+      tokenOverrides: 4
+    };
+
+    await flush(element);
+    await loginAsDefaultAdmin(element);
+    await renderBrandingPage(element as any);
+
+    const listItems = element.shadowRoot?.querySelectorAll('.metadata-item');
+    const values = Array.from(listItems ?? []).map((item) =>
+      Array.from(item.querySelectorAll('span')).map((span) => span.textContent?.trim())
+    );
+
+    expect(values).toContainEqual(['Theme', 'custom']);
+    expect(values).toContainEqual(['Accent color', '#ef4444']);
+    expect(values).toContainEqual(['Background', '#0f172a']);
+    expect(values).toContainEqual(['Font', 'Space Grotesk']);
+    expect(values).toContainEqual(['Token overrides', '4']);
+    expect(values).toContainEqual(['Logo', 'https://cdn.example.com/logo.svg']);
   });
 
   it('shows an empty publishing queue message without playlists', async () => {
