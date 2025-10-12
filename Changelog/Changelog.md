@@ -82,7 +82,7 @@
 **Why:** Implement the interactive admin shell aligned with the approved technology plan
 **What changed:** Added a Lit-based `<ux-admin-app>` component mirroring the dashboard demo, configured Vite/TypeScript tooling, and seeded Vitest coverage
 **Impact:** Introduces a runnable admin console prototype served via Vite; no impact on existing embed snippets
-**Testing:** `npm run test`
+**Testing:** `npm run test -- --run`
 **Docs:** README updated with admin console instructions and tooling overview
 **Rollback Plan:** Revert the admin console component, tooling files, and README/Changelog updates
 **Refs:** N/A
@@ -155,4 +155,14 @@
 **Docs:** README updated with endpoint management capability
 **Rollback Plan:** Revert the endpoint management UI commit set
 
+**Refs:** N/A
+
+## [2025-10-12 15:28] Align embed URLs with host origin
+**Change Type:** Normal Change
+**Why:** Ensure generated embed links work across staging and production hosts
+**What changed:** Derived embed URLs from the current browser origin, updated README guidance, and added Vitest coverage for the dynamic host behavior
+**Impact:** Embed links now match the domain serving the admin console; no configuration changes required
+**Testing:** `npm run test -- --run`
+**Docs:** README updated with embed origin behavior
+**Rollback Plan:** Revert the embed origin alignment commit
 **Refs:** N/A

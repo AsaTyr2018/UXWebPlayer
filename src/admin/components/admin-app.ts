@@ -48,7 +48,6 @@ const NAV_SECTIONS: NavSection[] = [
 
 const ACCESS_API_BASE = '/api/access';
 const SESSION_STORAGE_KEY = 'ux-admin-session-token';
-const EMBED_BASE_URL = 'https://player.uxwebplayer/embed/';
 
 type AccessUsersPayload = {
   users: AdminUser[];
@@ -1861,8 +1860,18 @@ export class UxAdminApp extends LitElement {
     document.body.removeChild(textarea);
   }
 
+  private getEmbedBaseUrl(): string {
+    if (typeof window === 'undefined' || !window.location) {
+      return '/embed/';
+    }
+
+    const origin = window.location.origin ?? '';
+    const trimmedOrigin = origin.endsWith('/') ? origin.slice(0, -1) : origin;
+    return `${trimmedOrigin}/embed/`;
+  }
+
   private buildEmbedUrl(slug: string): string {
-    return `${EMBED_BASE_URL}${slug}`;
+    return `${this.getEmbedBaseUrl()}${slug}`;
   }
 
   private resolvePlaylistName(playlistId: string | null): string {

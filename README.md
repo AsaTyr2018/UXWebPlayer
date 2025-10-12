@@ -7,6 +7,7 @@ Embeddable multimedia library designed to deliver audio and video playback insid
 - Configurable media directory mapping for music and video collections.
 - Extensible adapters for local folders, remote media sources, and analytics hooks.
 - Endpoint management to mint unique embed URLs and connect them to playlists.
+- Embed links mirror the current admin origin so staging and production hosts stay aligned.
 
 ## Quick Start
 ```html

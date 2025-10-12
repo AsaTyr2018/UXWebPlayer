@@ -179,6 +179,47 @@ describe('ux-admin-app', () => {
     expect(heading?.textContent).toContain('Media Library');
   });
 
+  it('uses the current origin when rendering endpoint embed URLs', async () => {
+    const element = document.createElement('ux-admin-app') as any;
+    document.body.appendChild(element);
+
+    await flush(element);
+    await loginAsDefaultAdmin(element);
+
+    const data = createEmptyAdminData();
+    data.endpoints = [
+      {
+        id: 'endpoint-1',
+        name: 'Lobby Display',
+        slug: '123456789',
+        status: 'operational',
+        playlistId: null,
+        lastSync: '2025-01-01T12:00:00Z',
+        latencyMs: 42
+      }
+    ];
+    data.metrics.activeEndpoints = 1;
+
+    element.data = data;
+
+    await flush(element);
+
+    const endpointsNav = element.shadowRoot?.querySelector('[data-page="endpoints"]') as HTMLButtonElement;
+    endpointsNav?.click();
+
+    await flush(element);
+
+    const embedSpan = element.shadowRoot?.querySelector('tbody .embed-url') as HTMLSpanElement | null;
+    expect(embedSpan).toBeTruthy();
+
+    const embedText = embedSpan
+      ? Array.from(embedSpan.childNodes)
+          .map((node) => node.textContent?.trim() ?? '')
+          .find((value) => value.startsWith(window.location.origin))
+      : undefined;
+    expect(embedText).toBe(`${window.location.origin}/embed/123456789`);
+  });
+
   it('renders playlist entries when data is provided', async () => {
     const element = document.createElement('ux-admin-app') as any;
     document.body.appendChild(element);
@@ -257,7 +298,9 @@ describe('ux-admin-app', () => {
     expect(playlistCell).toBe('Launch Playlist');
 
     const embedCell = rows?.[0]?.querySelector('.embed-url');
-    expect(embedCell?.textContent).toMatch(/https:\/\/player\.uxwebplayer\/embed\/\d{9}/);
+    const embedText = embedCell?.textContent?.replace('Copy', '').trim();
+    const originPattern = window.location.origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    expect(embedText).toMatch(new RegExp(`^${originPattern}/embed/\\d{9}$`));
   });
 
   it('warns after signing in with the default admin credentials', async () => {
