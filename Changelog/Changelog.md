@@ -116,3 +116,12 @@
 **Docs:** README updated with access control instructions
 **Rollback Plan:** Revert the access control login commit and restore the previous empty user state
 **Refs:** N/A
+## [2025-10-12 18:00] Gate admin console behind login dialog
+**Change Type:** Normal Change  
+**Why:** Ensure the admin experience prompts for authentication instead of rendering a blank screen when no session exists  
+**What changed:** Added a dedicated login screen gating the console, centralized the sign-in form markup, surfaced signed-in user context, refreshed Vitest coverage, and updated README guidance  
+**Impact:** Administrators must authenticate before navigating the console; default credentials remain `admin` / `admin` until replaced  
+**Testing:** `npm run test`  
+**Docs:** README updated with authentication instructions  
+**Rollback Plan:** Revert the commit introducing the login screen changes  
+**Refs:** N/A

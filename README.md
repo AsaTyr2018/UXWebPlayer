@@ -27,10 +27,10 @@ The dev server hosts `index.html`, which mounts the `<ux-admin-app>` Web Compone
 ### Data bootstrapping
 Provide runtime data by assigning the `data` property on `<ux-admin-app>` or by defining `window.__UX_ADMIN_DATA__` before the component upgrades. The structure must match `AdminData` in [`src/admin/types.ts`](src/admin/types.ts). When no data is provided the UI surfaces zeroed metrics and guidance for connecting the live admin API.
 
-### Access control prototype
-- Sign in on the **Access Control** page to unlock user management actions.
-- Default credentials: `admin` / `admin` (prompted to replace this account immediately after login).
-- A callout reminds operators to create a dedicated administrator and remove the bootstrap account.
+### Authentication & access control
+- The admin console now opens with a sign-in dialog; authenticate to unlock navigation and management tools.
+- Default credentials: `admin` / `admin` (replace this bootstrap account after first login).
+- After signing in, the **Access Control** page reminds operators to retire the default admin and provides a sign-out action.
 
 ## Configuration
 | Setting | Default | Description |

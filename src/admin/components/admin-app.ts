@@ -89,6 +89,51 @@ export class UxAdminApp extends LitElement {
       font: inherit;
     }
 
+    .login-screen {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 16px;
+      background:
+        radial-gradient(circle at top, rgba(37, 99, 235, 0.12), transparent 55%),
+        var(--bg);
+    }
+
+    .login-panel {
+      display: grid;
+      gap: 24px;
+      width: min(100%, 440px);
+      padding: 40px;
+      border-radius: 24px;
+      background: rgba(15, 23, 42, 0.85);
+      box-shadow: 0 32px 56px rgba(15, 23, 42, 0.45);
+      backdrop-filter: blur(16px);
+    }
+
+    .login-panel .login-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #e2e8f0;
+    }
+
+    .login-panel .login-brand .brand-icon {
+      font-size: 32px;
+      filter: drop-shadow(0 10px 28px rgba(15, 23, 42, 0.32));
+    }
+
+    .login-panel .login-brand .brand-title {
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .login-panel .login-brand .brand-subtitle {
+      display: block;
+      font-size: 14px;
+      opacity: 0.8;
+    }
+
     .dashboard {
       display: grid;
       grid-template-columns: var(--sidebar-width) 1fr;
@@ -803,26 +848,32 @@ export class UxAdminApp extends LitElement {
   private declare activePage: AdminPage;
 
   @state()
-  private isAuthenticated = false;
+  private declare isAuthenticated: boolean;
 
   @state()
-  private authenticatedUser: string | null = null;
+  private declare authenticatedUser: string | null;
 
   @state()
-  private loginUsername = '';
+  private declare loginUsername: string;
 
   @state()
-  private loginPassword = '';
+  private declare loginPassword: string;
 
   @state()
-  private loginError: string | null = null;
+  private declare loginError: string | null;
 
   @state()
-  private showDefaultAdminWarning = false;
+  private declare showDefaultAdminWarning: boolean;
 
   constructor() {
     super();
     this.activePage = 'dashboard';
+    this.isAuthenticated = false;
+    this.authenticatedUser = null;
+    this.loginUsername = '';
+    this.loginPassword = '';
+    this.loginError = null;
+    this.showDefaultAdminWarning = false;
   }
 
   connectedCallback() {
@@ -831,6 +882,14 @@ export class UxAdminApp extends LitElement {
   }
 
   protected render() {
+    if (!this.isAuthenticated) {
+      return this.renderLoginScreen();
+    }
+
+    return this.renderDashboardLayout();
+  }
+
+  private renderDashboardLayout() {
     return html`
       <div class="dashboard">
         <aside class="sidebar">
@@ -869,9 +928,9 @@ export class UxAdminApp extends LitElement {
               </label>
               <button class="primary" type="button">New Playlist</button>
               <div class="user" aria-label="Current user">
-                <span class="user-avatar" aria-hidden="true">AD</span>
+                <span class="user-avatar" aria-hidden="true">${this.userInitials}</span>
                 <div class="user-meta">
-                  <span class="user-name">Admin</span>
+                  <span class="user-name">${this.userDisplayName}</span>
                   <span class="user-role">System Owner</span>
                 </div>
               </div>
@@ -880,6 +939,27 @@ export class UxAdminApp extends LitElement {
           ${this.renderActivePage()}
         </main>
       </div>
+    `;
+  }
+
+  private renderLoginScreen() {
+    return html`
+      <section class="login-screen" role="main" aria-labelledby="global-login-form-title">
+        <div class="login-panel">
+          <div class="login-brand" aria-label="UXWebPlayer Admin">
+            <span class="brand-icon" aria-hidden="true">🎛️</span>
+            <div class="brand-label">
+              <span class="brand-title">UXWebPlayer</span>
+              <span class="brand-subtitle">Admin Console</span>
+            </div>
+          </div>
+          ${this.renderLoginForm(
+            'global-login-form',
+            'Sign in to UXWebPlayer Admin',
+            'Authenticate with an administrator account to continue.'
+          )}
+        </div>
+      </section>
     `;
   }
 
@@ -1362,16 +1442,23 @@ export class UxAdminApp extends LitElement {
     `;
   }
 
-  private renderLoginCard() {
+  private renderLoginForm(testId: string, heading: string, description: string) {
+    const headingId = `${testId}-title`;
+    const descriptionId = `${testId}-description`;
+    const errorId = `${testId}-error`;
+    const describedBy = this.loginError ? `${descriptionId} ${errorId}` : descriptionId;
+
     return html`
       <form
         class="login-card"
-        data-testid="access-login-form"
+        data-testid=${testId}
         @submit=${this.handleLoginSubmit}
         novalidate
+        aria-labelledby=${headingId}
+        aria-describedby=${describedBy}
       >
-        <h3>Sign in to manage access</h3>
-        <p>Use the default admin credentials on first launch.</p>
+        <h3 id=${headingId}>${heading}</h3>
+        <p id=${descriptionId}>${description}</p>
         <div class="form-group">
           <label for="login-username">Username</label>
           <input
@@ -1396,10 +1483,20 @@ export class UxAdminApp extends LitElement {
             required
           />
         </div>
-        ${this.loginError ? html`<p class="form-error" role="alert">${this.loginError}</p>` : nothing}
+        ${this.loginError
+          ? html`<p class="form-error" id=${errorId} role="alert">${this.loginError}</p>`
+          : nothing}
         <button class="primary" type="submit">Sign in</button>
       </form>
     `;
+  }
+
+  private renderLoginCard() {
+    return this.renderLoginForm(
+      'access-login-form',
+      'Sign in to manage access',
+      'Use the default admin credentials on first launch.'
+    );
   }
 
   private renderSignedInBanner() {
@@ -1407,7 +1504,7 @@ export class UxAdminApp extends LitElement {
       return nothing;
     }
 
-    return html`<p class="signed-in-banner" role="status">Signed in as <strong>${this.authenticatedUser}</strong></p>`;
+    return html`<p class="signed-in-banner" role="status">Signed in as <strong>${this.userDisplayName}</strong></p>`;
   }
 
   private renderDefaultAdminWarning() {
@@ -1501,6 +1598,7 @@ export class UxAdminApp extends LitElement {
     this.isAuthenticated = true;
     this.authenticatedUser = username;
     this.showDefaultAdminWarning = isDefaultAdmin;
+    this.loginUsername = '';
     this.loginPassword = '';
     this.loginError = null;
   }
@@ -1512,6 +1610,24 @@ export class UxAdminApp extends LitElement {
     this.loginPassword = '';
     this.loginError = null;
     this.showDefaultAdminWarning = false;
+  }
+
+  private get userDisplayName(): string {
+    return this.authenticatedUser ?? 'Admin';
+  }
+
+  private get userInitials(): string {
+    const value = this.authenticatedUser?.trim();
+    if (!value) {
+      return 'AD';
+    }
+
+    const parts = value.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return `${parts[0]!.charAt(0)}${parts[1]!.charAt(0)}`.toUpperCase();
+    }
+
+    return value.slice(0, 2).toUpperCase();
   }
 
   private renderConfiguration() {
