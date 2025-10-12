@@ -33,12 +33,72 @@ const createJsonResponse = (body: unknown, status = 200) =>
     headers: { 'Content-Type': 'application/json' }
   });
 
+type TestLibraryState = {
+  metrics: {
+    mediaAssets: number;
+    mediaAssetsNew: number;
+    publishedPlaylists: number;
+    playlistsPending: number;
+    activeEndpoints: number;
+    endpointsPending: number;
+    playbackErrors: number;
+    errorDelta: number;
+  };
+  playlists: ReturnType<typeof createEmptyAdminData>['playlists'];
+  mediaLibrary: ReturnType<typeof createEmptyAdminData>['mediaLibrary'];
+  endpoints: ReturnType<typeof createEmptyAdminData>['endpoints'];
+};
+
 let fetchMock: ReturnType<typeof vi.fn>;
+let libraryState: TestLibraryState;
+let endpointCounter: number;
 
 beforeEach(() => {
   sessionStorage.clear();
+  endpointCounter = 0;
+  libraryState = {
+    metrics: {
+      mediaAssets: 0,
+      mediaAssetsNew: 0,
+      publishedPlaylists: 0,
+      playlistsPending: 0,
+      activeEndpoints: 0,
+      endpointsPending: 0,
+      playbackErrors: 0,
+      errorDelta: 0
+    },
+    playlists: [],
+    mediaLibrary: [],
+    endpoints: []
+  };
+
+  // @ts-expect-error expose for tests
+  globalThis.__TEST_LIBRARY_STATE__ = libraryState;
+
+  const recomputeMetrics = () => {
+    const mediaAssets = libraryState.mediaLibrary.length;
+    const publishedPlaylists = libraryState.playlists.filter((playlist) =>
+      libraryState.mediaLibrary.some((asset) => asset.playlistId === playlist.id)
+    ).length;
+    const playlistsPending = libraryState.playlists.length - publishedPlaylists;
+    const activeEndpoints = libraryState.endpoints.filter((endpoint) => endpoint.status === 'operational').length;
+    const endpointsPending = libraryState.endpoints.filter((endpoint) => endpoint.status === 'pending').length;
+
+    libraryState.metrics = {
+      mediaAssets,
+      mediaAssetsNew: Math.min(mediaAssets, 5),
+      publishedPlaylists,
+      playlistsPending,
+      activeEndpoints,
+      endpointsPending,
+      playbackErrors: 0,
+      errorDelta: 0
+    };
+  };
+
   fetchMock = vi.fn(async (input, init) => {
     const url = typeof input === 'string' ? input : input.url;
+    const method = (init?.method ?? 'GET').toUpperCase();
 
     if (url.endsWith('/api/access/login') && (!init || init.method === 'POST')) {
       return createJsonResponse(createLoginPayload());
@@ -70,6 +130,75 @@ beforeEach(() => {
       }, 201);
     }
 
+    if (url.endsWith('/api/library/state') && method === 'GET') {
+      recomputeMetrics();
+      return createJsonResponse(libraryState);
+    }
+
+    if (url.endsWith('/api/library/endpoints') && method === 'POST') {
+      const body = init?.body ? JSON.parse(init.body as string) : {};
+      const slug = String(100_000_000 + endpointCounter).padStart(9, '0');
+      endpointCounter += 1;
+      const endpoint = {
+        id: `endpoint-${endpointCounter}`,
+        name: body.name ?? '',
+        slug,
+        playlistId: body.playlistId ?? null,
+        status: 'pending',
+        lastSync: 'Never',
+        latencyMs: undefined
+      } as TestLibraryState['endpoints'][number];
+
+      libraryState.endpoints = [...libraryState.endpoints, endpoint];
+      recomputeMetrics();
+
+      return createJsonResponse({ endpoint }, 201);
+    }
+
+    if (url.includes('/api/library/endpoints/') && method === 'PATCH') {
+      const endpointId = url.split('/').pop() ?? '';
+      const body = init?.body ? JSON.parse(init.body as string) : {};
+      const endpoint = libraryState.endpoints.find((item) => item.id === endpointId);
+
+      if (!endpoint) {
+        return createJsonResponse({ message: 'Endpoint not found' }, 404);
+      }
+
+      if (body.name !== undefined) {
+        endpoint.name = body.name;
+      }
+
+      if (body.playlistId !== undefined) {
+        endpoint.playlistId = body.playlistId || null;
+      }
+
+      if (body.status !== undefined) {
+        endpoint.status = body.status;
+        if (body.status === 'operational') {
+          endpoint.lastSync = new Date().toISOString();
+        }
+        if (body.status === 'disabled') {
+          endpoint.lastSync = endpoint.lastSync ?? 'Never';
+        }
+      }
+
+      recomputeMetrics();
+
+      return createJsonResponse({ endpoint });
+    }
+
+    if (url.includes('/api/library/endpoints/') && method === 'DELETE') {
+      const endpointId = url.split('/').pop() ?? '';
+      const exists = libraryState.endpoints.some((item) => item.id === endpointId);
+      if (!exists) {
+        return createJsonResponse({ message: 'Endpoint not found' }, 404);
+      }
+
+      libraryState.endpoints = libraryState.endpoints.filter((item) => item.id !== endpointId);
+      recomputeMetrics();
+      return new Response(null, { status: 204 });
+    }
+
     return createJsonResponse({ message: 'Not found' }, 404);
   });
 
@@ -81,6 +210,8 @@ afterEach(() => {
   vi.restoreAllMocks();
   document.body.innerHTML = '';
   sessionStorage.clear();
+  // @ts-expect-error cleanup
+  delete globalThis.__TEST_LIBRARY_STATE__;
 });
 
 const loginAsDefaultAdmin = async (element: Element) => {
@@ -183,11 +314,8 @@ describe('ux-admin-app', () => {
     const element = document.createElement('ux-admin-app') as any;
     document.body.appendChild(element);
 
-    await flush(element);
-    await loginAsDefaultAdmin(element);
-
-    const data = createEmptyAdminData();
-    data.endpoints = [
+    const state = (globalThis as any).__TEST_LIBRARY_STATE__ as TestLibraryState;
+    state.endpoints = [
       {
         id: 'endpoint-1',
         name: 'Lobby Display',
@@ -198,11 +326,9 @@ describe('ux-admin-app', () => {
         latencyMs: 42
       }
     ];
-    data.metrics.activeEndpoints = 1;
-
-    element.data = data;
 
     await flush(element);
+    await loginAsDefaultAdmin(element);
 
     const endpointsNav = element.shadowRoot?.querySelector('[data-page="endpoints"]') as HTMLButtonElement;
     endpointsNav?.click();
@@ -224,8 +350,8 @@ describe('ux-admin-app', () => {
     const element = document.createElement('ux-admin-app') as any;
     document.body.appendChild(element);
 
-    const data = createEmptyAdminData();
-    data.playlists = [
+    const state = (globalThis as any).__TEST_LIBRARY_STATE__ as TestLibraryState;
+    state.playlists = [
       {
         id: 'pl-1',
         name: 'Launch Playlist',
@@ -236,7 +362,6 @@ describe('ux-admin-app', () => {
         endpointCount: 3
       }
     ];
-    element.data = data;
 
     await flush(element);
 
@@ -250,8 +375,8 @@ describe('ux-admin-app', () => {
     const element = document.createElement('ux-admin-app') as any;
     document.body.appendChild(element);
 
-    const data = createEmptyAdminData();
-    data.playlists = [
+    const state = (globalThis as any).__TEST_LIBRARY_STATE__ as TestLibraryState;
+    state.playlists = [
       {
         id: 'pl-assign',
         name: 'Launch Playlist',
@@ -262,7 +387,6 @@ describe('ux-admin-app', () => {
         endpointCount: 3
       }
     ];
-    element.data = data;
 
     await flush(element);
 
@@ -290,6 +414,8 @@ describe('ux-admin-app', () => {
     submitButton.click();
 
     await flush(element);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await flush(element);
 
     const rows = element.shadowRoot?.querySelectorAll('tbody tr');
     expect(rows?.length).toBe(1);
@@ -301,6 +427,65 @@ describe('ux-admin-app', () => {
     const embedText = embedCell?.textContent?.replace('Copy', '').trim();
     const originPattern = window.location.origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     expect(embedText).toMatch(new RegExp(`^${originPattern}/embed/\\d{9}$`));
+  });
+
+  it('allows activating and disabling an endpoint', async () => {
+    const element = document.createElement('ux-admin-app') as any;
+    document.body.appendChild(element);
+
+    const state = (globalThis as any).__TEST_LIBRARY_STATE__ as TestLibraryState;
+    state.playlists = [
+      {
+        id: 'pl-toggle',
+        name: 'Main Loop',
+        status: 'published',
+        updatedAt: '2025-01-01T00:00:00Z',
+        owner: 'Team Admin',
+        itemCount: 5,
+        endpointCount: 1
+      }
+    ];
+    state.endpoints = [
+      {
+        id: 'endpoint-toggle',
+        name: 'Atrium Screen',
+        slug: '222222222',
+        status: 'pending',
+        playlistId: 'pl-toggle',
+        lastSync: 'Never',
+        latencyMs: undefined
+      }
+    ];
+
+    await flush(element);
+    await loginAsDefaultAdmin(element);
+
+    const endpointsNav = element.shadowRoot?.querySelector('[data-page="endpoints"]') as HTMLButtonElement;
+    endpointsNav?.click();
+
+    await flush(element);
+
+    const toggleButton = element.shadowRoot?.querySelector('[data-testid="endpoint-toggle"]') as HTMLButtonElement;
+    expect(toggleButton?.textContent).toContain('Activate');
+    expect(toggleButton?.disabled).toBe(false);
+
+    toggleButton?.click();
+
+    await flush(element);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await flush(element);
+
+    const activatedButton = element.shadowRoot?.querySelector('[data-testid="endpoint-toggle"]') as HTMLButtonElement;
+    expect(activatedButton?.textContent).toContain('Disable');
+
+    activatedButton?.click();
+
+    await flush(element);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await flush(element);
+
+    const disabledButton = element.shadowRoot?.querySelector('[data-testid="endpoint-toggle"]') as HTMLButtonElement;
+    expect(disabledButton?.textContent).toContain('Activate');
   });
 
   it('warns after signing in with the default admin credentials', async () => {

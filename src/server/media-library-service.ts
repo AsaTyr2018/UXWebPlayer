@@ -103,7 +103,7 @@ const saveState = (state: MediaLibraryState) => {
   cachedState = state;
 };
 
-const findPlaylist = (playlistId: string): PlaylistRecord | null => {
+export const findPlaylistById = (playlistId: string): PlaylistRecord | null => {
   const state = loadState();
   const playlist = state.playlists.find((entry) => entry.id === playlistId);
   return playlist ?? null;
@@ -338,7 +338,7 @@ export const deleteAsset = (assetId: string) => {
     throw new LibraryNotFoundError('Asset not found.');
   }
 
-  const playlist = findPlaylist(asset.playlistId);
+  const playlist = findPlaylistById(asset.playlistId);
   if (playlist) {
     const filePath = mapAssetFilePath(asset, playlist);
     if (fs.existsSync(filePath)) {

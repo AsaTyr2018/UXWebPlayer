@@ -55,6 +55,7 @@ type MediaLibraryStatePayload = {
   metrics: AdminData['metrics'];
   playlists: AdminPlaylist[];
   mediaLibrary: AdminData['mediaLibrary'];
+  endpoints: AdminEndpoint[];
 };
 
 type AccessUsersPayload = {
@@ -1162,7 +1163,13 @@ export class UxAdminApp extends LitElement {
   private declare endpointFormError: string | null;
 
   @state()
+  private declare endpointFormSubmitting: boolean;
+
+  @state()
   private declare endpointCopyFeedback: string | null;
+
+  @state()
+  private declare endpointActionError: string | null;
 
   @state()
   private declare libraryLoading: boolean;
@@ -1253,7 +1260,9 @@ export class UxAdminApp extends LitElement {
     this.endpointFormSlug = '';
     this.endpointEditingId = null;
     this.endpointFormError = null;
+    this.endpointFormSubmitting = false;
     this.endpointCopyFeedback = null;
+    this.endpointActionError = null;
     this.libraryLoading = false;
     this.libraryError = null;
     this.playlistFormName = '';
@@ -1950,6 +1959,9 @@ export class UxAdminApp extends LitElement {
             Add endpoint
           </button>
         </header>
+        ${this.endpointActionError
+          ? html`<p class="error" role="alert">${this.endpointActionError}</p>`
+          : nothing}
         ${this.renderEndpointForm()}
         ${table}
         ${copyFeedback}
@@ -1960,6 +1972,11 @@ export class UxAdminApp extends LitElement {
   private renderEndpointRow(endpoint: AdminEndpoint) {
     const playlistName = this.resolvePlaylistName(endpoint.playlistId ?? null);
     const embedUrl = this.buildEmbedUrl(endpoint.slug);
+    const isActive = endpoint.status === 'operational' || endpoint.status === 'degraded';
+    const toggleLabel = isActive ? 'Disable' : 'Activate';
+    const toggleDisabled = !isActive && !endpoint.playlistId;
+    const toggleClass = isActive ? 'secondary' : 'primary';
+    const toggleTitle = !isActive && !endpoint.playlistId ? 'Assign a playlist before activation.' : '';
 
     return html`
       <tr>
@@ -1986,13 +2003,23 @@ export class UxAdminApp extends LitElement {
         <td>${endpoint.latencyMs ? `${endpoint.latencyMs} ms` : '—'}</td>
         <td>
           <div class="table-actions">
+            <button
+              type="button"
+              class=${toggleClass}
+              @click=${() => void this.handleEndpointStatusToggle(endpoint)}
+              ?disabled=${toggleDisabled}
+              title=${toggleTitle}
+              data-testid="endpoint-toggle"
+            >
+              ${toggleLabel}
+            </button>
             <button type="button" @click=${() => this.openEditEndpointForm(endpoint)} data-testid="endpoint-edit">
               Edit
             </button>
             <button
               type="button"
               class="danger"
-              @click=${() => this.handleEndpointDelete(endpoint.id)}
+              @click=${() => void this.handleEndpointDelete(endpoint.id)}
               data-testid="endpoint-remove"
             >
               Remove
@@ -2060,8 +2087,21 @@ export class UxAdminApp extends LitElement {
         </div>
         ${this.endpointFormError ? html`<p class="error" role="alert">${this.endpointFormError}</p>` : nothing}
         <footer>
-          <button type="button" class="secondary" @click=${this.closeEndpointForm}>Cancel</button>
-          <button type="submit" class="primary">${isEdit ? 'Save changes' : 'Create endpoint'}</button>
+          <button
+            type="button"
+            class="secondary"
+            @click=${this.closeEndpointForm}
+            ?disabled=${this.endpointFormSubmitting}
+          >
+            Cancel
+          </button>
+          <button type="submit" class="primary" ?disabled=${this.endpointFormSubmitting}>
+            ${this.endpointFormSubmitting
+              ? 'Saving…'
+              : isEdit
+                ? 'Save changes'
+                : 'Create endpoint'}
+          </button>
         </footer>
       </form>
     `;
@@ -2072,8 +2112,10 @@ export class UxAdminApp extends LitElement {
     this.endpointEditingId = null;
     this.endpointFormName = '';
     this.endpointFormPlaylistId = '';
-    this.endpointFormSlug = this.generateEndpointSlug();
+    this.endpointFormSlug = '';
     this.endpointFormError = null;
+    this.endpointFormSubmitting = false;
+    this.endpointActionError = null;
     this.endpointFormOpen = true;
   }
 
@@ -2084,6 +2126,8 @@ export class UxAdminApp extends LitElement {
     this.endpointFormPlaylistId = endpoint.playlistId ?? '';
     this.endpointFormSlug = endpoint.slug;
     this.endpointFormError = null;
+    this.endpointFormSubmitting = false;
+    this.endpointActionError = null;
     this.endpointFormOpen = true;
   }
 
@@ -2094,10 +2138,15 @@ export class UxAdminApp extends LitElement {
     this.endpointFormPlaylistId = '';
     this.endpointFormSlug = '';
     this.endpointFormError = null;
+    this.endpointFormSubmitting = false;
   }
 
-  private handleEndpointFormSubmit(event: Event) {
+  private async handleEndpointFormSubmit(event: Event) {
     event.preventDefault();
+    if (this.endpointFormSubmitting) {
+      return;
+    }
+
     const name = this.endpointFormName.trim();
 
     if (!name) {
@@ -2106,45 +2155,46 @@ export class UxAdminApp extends LitElement {
     }
 
     const playlistId = this.endpointFormPlaylistId || null;
-    const endpoints = [...this.data.endpoints];
+    this.endpointFormError = null;
+    this.endpointActionError = null;
+    this.endpointFormSubmitting = true;
 
-    if (this.endpointFormMode === 'create') {
-      let slug = this.endpointFormSlug || this.generateEndpointSlug();
-      const existingSlugs = new Set(endpoints.map((endpoint) => endpoint.slug));
-      while (existingSlugs.has(slug)) {
-        slug = this.generateEndpointSlug();
-      }
+    try {
+      if (this.endpointFormMode === 'create') {
+        const response = await this.authorizedFetch(`${LIBRARY_API_BASE}/endpoints`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, playlistId })
+        });
 
-      const newEndpoint: AdminEndpoint = {
-        id: this.createEndpointId(),
-        name,
-        slug,
-        playlistId,
-        status: 'pending',
-        lastSync: 'Never',
-        latencyMs: undefined
-      };
+        if (!response.ok) {
+          throw new Error(await this.readApiError(response));
+        }
+      } else if (this.endpointFormMode === 'edit' && this.endpointEditingId) {
+        const response = await this.authorizedFetch(
+          `${LIBRARY_API_BASE}/endpoints/${this.endpointEditingId}`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, playlistId })
+          }
+        );
 
-      endpoints.push(newEndpoint);
-      this.persistEndpoints(endpoints);
-    } else if (this.endpointFormMode === 'edit' && this.endpointEditingId) {
-      const index = endpoints.findIndex((endpoint) => endpoint.id === this.endpointEditingId);
-
-      if (index === -1) {
+        if (!response.ok) {
+          throw new Error(await this.readApiError(response));
+        }
+      } else {
         this.endpointFormError = 'Endpoint no longer exists.';
         return;
       }
 
-      endpoints[index] = {
-        ...endpoints[index],
-        name,
-        playlistId
-      };
-
-      this.persistEndpoints(endpoints);
+      await this.refreshLibraryState({ showLoading: false });
+      this.closeEndpointForm();
+    } catch (error) {
+      this.endpointFormError = this.getErrorMessage(error, 'Unable to save endpoint.');
+    } finally {
+      this.endpointFormSubmitting = false;
     }
-
-    this.closeEndpointForm();
   }
 
   private handleEndpointNameInput(event: Event) {
@@ -2158,9 +2208,12 @@ export class UxAdminApp extends LitElement {
   private handleEndpointPlaylistChange(event: Event) {
     const target = event.target as HTMLSelectElement | null;
     this.endpointFormPlaylistId = target?.value ?? '';
+    if (this.endpointFormError) {
+      this.endpointFormError = null;
+    }
   }
 
-  private handleEndpointDelete(id: string) {
+  private async handleEndpointDelete(id: string) {
     const endpoint = this.data.endpoints.find((item) => item.id === id);
     if (!endpoint) {
       return;
@@ -2174,11 +2227,52 @@ export class UxAdminApp extends LitElement {
       return;
     }
 
-    const remaining = this.data.endpoints.filter((item) => item.id !== id);
-    this.persistEndpoints(remaining);
+    this.endpointActionError = null;
 
-    if (this.endpointEditingId === id) {
-      this.closeEndpointForm();
+    try {
+      const response = await this.authorizedFetch(`${LIBRARY_API_BASE}/endpoints/${id}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        throw new Error(await this.readApiError(response));
+      }
+
+      await this.refreshLibraryState({ showLoading: false });
+
+      if (this.endpointEditingId === id) {
+        this.closeEndpointForm();
+      }
+    } catch (error) {
+      this.endpointActionError = this.getErrorMessage(error, 'Unable to remove endpoint.');
+    }
+  }
+
+  private async handleEndpointStatusToggle(endpoint: AdminEndpoint) {
+    const isActive = endpoint.status === 'operational' || endpoint.status === 'degraded';
+    const nextStatus = isActive ? 'disabled' : 'operational';
+
+    if (!isActive && !endpoint.playlistId) {
+      this.endpointActionError = 'Assign a playlist before activating this endpoint.';
+      return;
+    }
+
+    this.endpointActionError = null;
+
+    try {
+      const response = await this.authorizedFetch(`${LIBRARY_API_BASE}/endpoints/${endpoint.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus })
+      });
+
+      if (!response.ok) {
+        throw new Error(await this.readApiError(response));
+      }
+
+      await this.refreshLibraryState({ showLoading: false });
+    } catch (error) {
+      this.endpointActionError = this.getErrorMessage(error, 'Unable to update endpoint status.');
     }
   }
 
@@ -2588,45 +2682,6 @@ export class UxAdminApp extends LitElement {
     }
 
     return playlist.type === 'video' ? 'video/*' : 'audio/*';
-  }
-
-  private persistEndpoints(endpoints: AdminEndpoint[]) {
-    const metrics = {
-      ...this.data.metrics,
-      ...this.computeEndpointMetrics(endpoints)
-    };
-
-    this.data = {
-      ...this.data,
-      endpoints,
-      metrics
-    };
-  }
-
-  private computeEndpointMetrics(endpoints: AdminEndpoint[]) {
-    const activeEndpoints = endpoints.filter((endpoint) => endpoint.status === 'operational').length;
-    const endpointsPending = endpoints.filter((endpoint) => endpoint.status === 'pending').length;
-
-    return { activeEndpoints, endpointsPending };
-  }
-
-  private generateEndpointSlug(): string {
-    const existing = new Set(this.data.endpoints.map((endpoint) => endpoint.slug));
-    let candidate = '';
-
-    do {
-      candidate = Math.floor(100_000_000 + Math.random() * 900_000_000).toString();
-    } while (existing.has(candidate));
-
-    return candidate;
-  }
-
-  private createEndpointId(): string {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-      return crypto.randomUUID();
-    }
-
-    return `endpoint-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   }
 
   private renderAnalytics() {
@@ -3238,6 +3293,7 @@ export class UxAdminApp extends LitElement {
       this.data = {
         ...this.data,
         metrics: { ...this.data.metrics, ...payload.metrics },
+        endpoints: payload.endpoints,
         playlists: payload.playlists,
         mediaLibrary: payload.mediaLibrary
       };

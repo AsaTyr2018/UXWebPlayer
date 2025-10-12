@@ -15,10 +15,31 @@ import {
 import { createSession, deleteSession, requireSession } from './session-store.js';
 import { createMediaLibraryRouter } from './media-library-app.js';
 import { extractBearerToken, requireBearerToken } from './http-auth.js';
+import {
+  findPlaylistById,
+  listAssets,
+  mediaRootPath,
+  type MediaAssetRecord
+} from './media-library-service.js';
+import { findEndpointBySlug } from './endpoint-service.js';
 
 const EMBED_TEMPLATE_PATH = path.resolve(process.cwd(), 'public/embed.html');
 const isProduction = process.env.NODE_ENV === 'production';
 let cachedEmbedTemplate: string | null = null;
+
+const assetPlaybackUrl = (asset: MediaAssetRecord) => {
+  const typeDirectory = asset.type === 'video' ? 'video' : 'music';
+  return `/media/${typeDirectory}/${asset.playlistId}/${asset.filename}`;
+};
+
+const mapAssetToTrack = (asset: MediaAssetRecord) => ({
+  id: asset.id,
+  title: asset.title,
+  artist: asset.artist ?? '',
+  durationSeconds: asset.durationSeconds,
+  src: assetPlaybackUrl(asset),
+  mimeType: asset.mimeType
+});
 
 const readEmbedTemplate = () => {
   if (!isProduction || cachedEmbedTemplate === null) {
@@ -32,6 +53,7 @@ export const createAccessControlApp = () => {
   const app = express();
   app.use(cors());
   app.use(express.json());
+  app.use('/media', express.static(mediaRootPath));
 
   app.post('/api/access/login', (request, response, next) => {
     try {
@@ -127,6 +149,52 @@ export const createAccessControlApp = () => {
   });
 
   app.use('/api/library', createMediaLibraryRouter());
+
+  app.get('/api/embed/:slug/stream', (request, response, next) => {
+    try {
+      const slug = (request.params.slug ?? '').trim();
+
+      if (!slug) {
+        response.status(404).json({ message: 'Endpoint not found.' });
+        return;
+      }
+
+      const endpoint = findEndpointBySlug(slug);
+
+      if (!endpoint) {
+        response.status(404).json({ message: 'Endpoint not found.' });
+        return;
+      }
+
+      const playlist = endpoint.playlistId ? findPlaylistById(endpoint.playlistId) : null;
+      const shouldStream = endpoint.status === 'operational' || endpoint.status === 'degraded';
+      const assets = shouldStream && playlist ? listAssets() : [];
+      const tracks = shouldStream && playlist
+        ? assets
+            .filter((asset) => asset.playlistId === playlist.id && asset.status === 'ready')
+            .map((asset) => mapAssetToTrack(asset))
+        : [];
+
+      response.json({
+        endpoint: {
+          name: endpoint.name,
+          slug: endpoint.slug,
+          status: endpoint.status,
+          lastSync: endpoint.lastSync
+        },
+        playlist: playlist
+          ? {
+              id: playlist.id,
+              name: playlist.name,
+              type: playlist.type
+            }
+          : null,
+        tracks
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
 
   app.get('/embed/:slug', (request, response, next) => {
     try {
