@@ -31,6 +31,11 @@ import { assertAuthenticated } from './http-auth.js';
 import { getAnalyticsSnapshot } from './analytics-service.js';
 import { getBrandingSettings, updateBrandingSettings } from './branding-service.js';
 import type { BrandingSettings } from '../admin/types.js';
+import {
+  DEFAULT_ENDPOINT_PLAYER_VARIANT,
+  isEndpointPlayerVariant,
+  type EndpointPlayerVariant
+} from '../types/endpoint.js';
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -97,6 +102,7 @@ const mapEndpointToResponse = (endpoint: ReturnType<typeof listEndpoints>[number
   name: endpoint.name,
   slug: endpoint.slug,
   playlistId: endpoint.playlistId,
+  playerVariant: endpoint.playerVariant,
   status: endpoint.status,
   lastSync: endpoint.lastSync ?? 'Never',
   latencyMs: endpoint.latencyMs ?? undefined
@@ -109,6 +115,24 @@ const normalizePlaylistId = (value: unknown): string | null => {
 
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+};
+
+const normalizePlayerVariant = (value: unknown): EndpointPlayerVariant => {
+  if (value === undefined || value === null || value === '') {
+    return DEFAULT_ENDPOINT_PLAYER_VARIANT;
+  }
+
+  if (typeof value !== 'string') {
+    throw new EndpointValidationError('Invalid player variant.');
+  }
+
+  const candidate = value.trim();
+
+  if (isEndpointPlayerVariant(candidate)) {
+    return candidate;
+  }
+
+  throw new EndpointValidationError('Invalid player variant.');
 };
 
 const assertPlaylistExists = (playlistId: string | null) => {
@@ -248,7 +272,7 @@ export const createMediaLibraryRouter = () => {
 
   router.post('/endpoints', (request, response, next) => {
     try {
-      const { name, playlistId } = request.body ?? {};
+      const { name, playlistId, playerVariant } = request.body ?? {};
       if (typeof name !== 'string') {
         throw new EndpointValidationError('Endpoint name is required.');
       }
@@ -256,7 +280,11 @@ export const createMediaLibraryRouter = () => {
       const normalizedPlaylistId = normalizePlaylistId(playlistId);
       assertPlaylistExists(normalizedPlaylistId);
 
-      const endpoint = createEndpoint({ name, playlistId: normalizedPlaylistId });
+      const endpoint = createEndpoint({
+        name,
+        playlistId: normalizedPlaylistId,
+        playerVariant: normalizePlayerVariant(playerVariant)
+      });
       response.status(201).json({ endpoint: mapEndpointToResponse(endpoint) });
     } catch (error) {
       handleEndpointError(error, response, next);
@@ -272,7 +300,7 @@ export const createMediaLibraryRouter = () => {
       }
 
       const updates: Parameters<typeof updateEndpoint>[1] = {};
-      const { name, playlistId, status } = request.body ?? {};
+      const { name, playlistId, status, playerVariant } = request.body ?? {};
 
       if (name !== undefined) {
         if (typeof name !== 'string') {
@@ -286,6 +314,10 @@ export const createMediaLibraryRouter = () => {
         const normalizedPlaylistId = normalizePlaylistId(playlistId);
         assertPlaylistExists(normalizedPlaylistId);
         updates.playlistId = normalizedPlaylistId;
+      }
+
+      if (playerVariant !== undefined) {
+        updates.playerVariant = normalizePlayerVariant(playerVariant);
       }
 
       if (status !== undefined) {

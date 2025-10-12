@@ -26,6 +26,38 @@ body {
   gap: 24px;
 }
 
+#player-root[data-player-variant='large'] {
+  width: min(920px, 95vw);
+}
+
+#player-root[data-player-variant='small'] {
+  width: min(420px, 90vw);
+  padding: 24px;
+  gap: 18px;
+}
+
+#player-root[data-player-variant='background'] {
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  box-shadow: none;
+  gap: 0;
+}
+
+body[data-player-variant='background'] {
+  min-height: 0;
+  display: block;
+  background: transparent;
+}
+
+#player-root[data-player-variant='background'] .player-header,
+#player-root[data-player-variant='background'] .player-status,
+#player-root[data-player-variant='background'] .player-playback {
+  display: none !important;
+}
+
 .player-header {
   display: flex;
   flex-direction: column;
@@ -73,6 +105,21 @@ body {
   gap: 16px;
 }
 
+#player-root[data-player-variant='small'] .player-playback {
+  padding: 16px;
+  gap: 12px;
+}
+
+#player-root[data-player-variant='large'] .player-playback {
+  grid-template-columns: minmax(220px, 280px) 1fr;
+  grid-template-areas:
+    'playlist now'
+    'playlist audio'
+    'playlist feedback'
+    'playlist visualization';
+  align-items: stretch;
+}
+
 .now-playing {
   display: grid;
   gap: 4px;
@@ -111,6 +158,54 @@ body {
   padding: 0;
   display: grid;
   gap: 8px;
+}
+
+#player-root[data-player-variant='small'] .track-list {
+  display: none;
+}
+
+#player-root[data-player-variant='large'] .track-list {
+  grid-area: playlist;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+#player-root[data-player-variant='large'] .now-playing {
+  grid-area: now;
+}
+
+#player-root[data-player-variant='large'] .player-audio {
+  grid-area: audio;
+  width: 100%;
+}
+
+#player-root[data-player-variant='large'] .playback-feedback {
+  grid-area: feedback;
+}
+
+.player-visualization-placeholder {
+  display: none;
+}
+
+#player-root[data-player-variant='large'] .player-visualization-placeholder {
+  display: grid;
+  place-items: center;
+  grid-area: visualization;
+  border-radius: 16px;
+  border: 1px dashed rgba(96, 165, 250, 0.55);
+  background: rgba(30, 64, 175, 0.25);
+  color: rgba(148, 163, 184, 0.9);
+  font-size: 0.9rem;
+  padding: 16px;
+}
+
+.background-audio {
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  position: absolute;
+  pointer-events: none;
 }
 
 .track-list li {

@@ -248,11 +248,21 @@
 **Refs:** N/A
 
 ## [2025-10-14 09:30] Refresh analytics feed and reactive branding theme
-**Change Type:** Normal Change  
-**Why:** Replace demo analytics data with live metrics and ensure branding changes update the admin theme immediately  
-**What changed:** Recomputed analytics snapshots from playlist, asset, and endpoint stores with persisted deltas, overhauled branding token application to drive CSS variables, and expanded Vitest coverage for both features  
-**Impact:** Analytics now reflect real library activity while branding edits instantly retheme the console; existing stores remain compatible  
-**Testing:** `npm run test`  
-**Docs:** README updated with live analytics and branding token behaviour  
-**Rollback Plan:** Revert the analytics/branding refresh commit to restore the previous static metrics and styling behaviour  
+**Change Type:** Normal Change
+**Why:** Replace demo analytics data with live metrics and ensure branding changes update the admin theme immediately
+**What changed:** Recomputed analytics snapshots from playlist, asset, and endpoint stores with persisted deltas, overhauled branding token application to drive CSS variables, and expanded Vitest coverage for both features
+**Impact:** Analytics now reflect real library activity while branding edits instantly retheme the console; existing stores remain compatible
+**Testing:** `npm run test`
+**Docs:** README updated with live analytics and branding token behaviour
+**Rollback Plan:** Revert the analytics/branding refresh commit to restore the previous static metrics and styling behaviour
+**Refs:** N/A
+
+## [2025-10-14 14:30] Add configurable player variants
+**Change Type:** Normal Change
+**Why:** Offer multiple embed footprints so endpoints can match kiosk screens, compact layouts, or ambient audio needs
+**What changed:** Persisted a `playerVariant` on endpoints, exposed selection controls in the admin form, validated the value server-side, updated embed runtime logic and styling for large/medium/small/background layouts, and extended Vitest coverage for API and UI flows
+**Impact:** Newly created and existing endpoints default to the medium layout while admins can pick other variants; embeds adapt automatically without breaking older data thanks to safe defaults
+**Testing:** `npm run test`
+**Docs:** README updated with player variant guidance
+**Rollback Plan:** Revert the player variant commit to restore the single-layout player
 **Refs:** N/A

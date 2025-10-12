@@ -3,6 +3,11 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 import type { EndpointStatus } from '../admin/types.js';
+import {
+  DEFAULT_ENDPOINT_PLAYER_VARIANT,
+  isEndpointPlayerVariant,
+  type EndpointPlayerVariant
+} from '../types/endpoint.js';
 
 export class EndpointValidationError extends Error {
   constructor(message: string) {
@@ -23,6 +28,7 @@ export interface EndpointRecord {
   name: string;
   slug: string;
   playlistId: string | null;
+  playerVariant: EndpointPlayerVariant;
   status: EndpointStatus;
   lastSync: string | null;
   latencyMs: number | null;
@@ -45,6 +51,30 @@ const ensureStoreDirectory = () => {
   fs.mkdirSync(directory, { recursive: true });
 };
 
+const coercePlayerVariant = (value: unknown): EndpointPlayerVariant => {
+  if (isEndpointPlayerVariant(value)) {
+    return value;
+  }
+
+  return DEFAULT_ENDPOINT_PLAYER_VARIANT;
+};
+
+const resolvePlayerVariant = (
+  value: EndpointPlayerVariant | string | null | undefined
+): EndpointPlayerVariant => {
+  if (value === undefined || value === null) {
+    return DEFAULT_ENDPOINT_PLAYER_VARIANT;
+  }
+
+  const candidate = typeof value === 'string' ? value.trim() : value;
+
+  if (isEndpointPlayerVariant(candidate)) {
+    return candidate;
+  }
+
+  throw new EndpointValidationError('Invalid player variant.');
+};
+
 const loadState = (): EndpointStoreState => {
   if (cachedState) {
     return cachedState;
@@ -60,7 +90,12 @@ const loadState = (): EndpointStoreState => {
   try {
     const raw = fs.readFileSync(ENDPOINT_STORE_PATH, 'utf8');
     const parsed = JSON.parse(raw) as Partial<EndpointStoreState>;
-    const endpoints = Array.isArray(parsed.endpoints) ? parsed.endpoints : [];
+    const endpoints = Array.isArray(parsed.endpoints)
+      ? parsed.endpoints.map((endpoint) => ({
+          ...endpoint,
+          playerVariant: coercePlayerVariant((endpoint as Partial<EndpointRecord>).playerVariant)
+        }))
+      : [];
     cachedState = { endpoints };
     return cachedState;
   } catch (error) {
@@ -101,6 +136,7 @@ export const getEndpointById = (endpointId: string): EndpointRecord | null => {
 export interface CreateEndpointInput {
   name: string;
   playlistId: string | null;
+  playerVariant?: EndpointPlayerVariant;
 }
 
 export const createEndpoint = (input: CreateEndpointInput): EndpointRecord => {
@@ -118,6 +154,7 @@ export const createEndpoint = (input: CreateEndpointInput): EndpointRecord => {
     name,
     slug,
     playlistId: input.playlistId ?? null,
+    playerVariant: resolvePlayerVariant(input.playerVariant),
     status: 'pending',
     lastSync: null,
     latencyMs: null,
@@ -134,6 +171,7 @@ export const createEndpoint = (input: CreateEndpointInput): EndpointRecord => {
 export interface UpdateEndpointInput {
   name?: string;
   playlistId?: string | null;
+  playerVariant?: EndpointPlayerVariant;
   status?: EndpointStatus;
 }
 
@@ -156,6 +194,10 @@ export const updateEndpoint = (endpointId: string, updates: UpdateEndpointInput)
 
   if (updates.playlistId !== undefined) {
     endpoint.playlistId = updates.playlistId;
+  }
+
+  if (updates.playerVariant !== undefined) {
+    endpoint.playerVariant = resolvePlayerVariant(updates.playerVariant);
   }
 
   if (updates.status !== undefined) {
