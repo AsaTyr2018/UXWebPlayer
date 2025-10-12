@@ -22,7 +22,7 @@ npm install
 npm run dev
 ```
 
-The dev server hosts `index.html`, which mounts the `<ux-admin-app>` Web Component showcasing the planned dashboard shell.
+The dev server hosts `index.html`, which mounts the `<ux-admin-app>` Web Component showcasing the planned dashboard shell. It now binds to `0.0.0.0:2222` for container and LAN access.
 
 ## Configuration
 | Setting | Default | Description |
@@ -42,7 +42,7 @@ The dev server hosts `index.html`, which mounts the `<ux-admin-app>` Web Compone
 
 ### Scripts
 ```bash
-npm run dev    # Start the Vite dev server for the admin console
+npm run dev    # Start the Vite dev server on http://0.0.0.0:2222
 npm run build  # Produce the static admin bundle in dist/admin
 npm run test   # Execute Vitest unit tests
 ```
