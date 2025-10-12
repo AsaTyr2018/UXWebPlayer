@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>UX Web Player</title>
+    <link rel="stylesheet" href="/assets/styles/embed-player.css" />
+  </head>
+  <body>
+    <main id="player-root" data-endpoint-slug="%%ENDPOINT_SLUG%%" aria-live="polite">
+      <header class="player-header">
+        <h1>UX Web Player</h1>
+        <p class="player-subtitle">Loading playlist&hellip;</p>
+      </header>
+      <section class="player-status">
+        <p>This endpoint is initializing. Please wait.</p>
+      </section>
+    </main>
+    <script>
+      window.__UX_EMBED_SLUG__ = '%%ENDPOINT_SLUG%%';
+    </script>
+    <script type="module" src="/assets/scripts/embed-player.js"></script>
+  </body>
+</html>

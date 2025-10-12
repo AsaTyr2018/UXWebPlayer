@@ -196,3 +196,13 @@
 **Docs:** README updated  
 **Rollback Plan:** Revert this documentation commit  
 **Refs:** N/A
+
+## [2025-10-12 16:34] Serve dedicated embed player shell
+**Change Type:** Normal Change  
+**Why:** Endpoint URLs should load the media player without exposing the admin console  
+**What changed:** Added an Express route for `/embed/:slug`, introduced a lightweight embed HTML/CSS/JS bundle, wired Vitest coverage, and documented the dedicated shell  
+**Impact:** Endpoint links now resolve to a standalone player container; admin panel access remains behind authenticated URLs  
+**Testing:** `npm run test`  
+**Docs:** README updated with embed shell details  
+**Rollback Plan:** Revert the embed shell commit and remove the new public assets  
+**Refs:** N/A
