@@ -685,6 +685,105 @@ describe('ux-admin-app', () => {
     expect(embedText).toMatch(new RegExp(`^${originPattern}/embed/\\d{9}$`));
   });
 
+  it('allows selecting the large player variant for endpoints', async () => {
+    const element = document.createElement('ux-admin-app') as any;
+    document.body.appendChild(element);
+
+    const state = (globalThis as any).__TEST_LIBRARY_STATE__ as TestLibraryState;
+    state.playlists = [
+      {
+        id: 'pl-large',
+        name: 'Showcase Playlist',
+        status: 'published',
+        updatedAt: '2025-01-02T08:00:00Z',
+        owner: 'Team Admin',
+        itemCount: 8,
+        endpointCount: 2
+      }
+    ];
+
+    await flush(element);
+
+    await loginAsDefaultAdmin(element);
+
+    const navButton = element.shadowRoot?.querySelector('[data-page="endpoints"]') as HTMLButtonElement;
+    navButton.click();
+
+    await flush(element);
+
+    const addButton = element.shadowRoot?.querySelector('[data-testid="endpoint-add-button"]') as HTMLButtonElement;
+    addButton.click();
+
+    await flush(element);
+
+    const nameInput = element.shadowRoot?.querySelector('#endpoint-name') as HTMLInputElement;
+    nameInput.value = 'Atrium Wall';
+    nameInput.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+
+    const playlistSelect = element.shadowRoot?.querySelector('#endpoint-playlist') as HTMLSelectElement;
+    playlistSelect.value = 'pl-large';
+    playlistSelect.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+
+    const variantSelect = element.shadowRoot?.querySelector('#endpoint-variant') as HTMLSelectElement;
+    variantSelect.value = 'large';
+    variantSelect.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+
+    const submitButton = element.shadowRoot?.querySelector('[data-testid="endpoint-form"] button.primary') as HTMLButtonElement;
+    submitButton.click();
+
+    await flush(element);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await flush(element);
+
+    const rows = element.shadowRoot?.querySelectorAll('tbody tr');
+    expect(rows?.length).toBe(1);
+
+    const variantLabel = rows?.[0]?.querySelector('.endpoint-variant-label')?.textContent?.trim();
+    expect(variantLabel).toBe('Large player');
+
+    expect(state.endpoints[0]?.playerVariant).toBe('large');
+  });
+
+  it('normalizes endpoint variants received from the API', async () => {
+    const element = document.createElement('ux-admin-app') as any;
+    document.body.appendChild(element);
+
+    const state = (globalThis as any).__TEST_LIBRARY_STATE__ as TestLibraryState;
+    state.endpoints = [
+      {
+        id: 'endpoint-legacy',
+        name: 'Legacy Kiosk',
+        slug: '999888777',
+        status: 'operational',
+        playlistId: null,
+        playerVariant: 'Large' as any,
+        lastSync: '2025-01-03T10:00:00Z',
+        latencyMs: undefined
+      }
+    ];
+
+    await flush(element);
+    await loginAsDefaultAdmin(element);
+
+    const endpointsNav = element.shadowRoot?.querySelector('[data-page="endpoints"]') as HTMLButtonElement;
+    endpointsNav?.click();
+
+    await flush(element);
+
+    const variantLabel = element.shadowRoot
+      ?.querySelector('.endpoint-variant-label')
+      ?.textContent?.trim();
+    expect(variantLabel).toBe('Large player');
+
+    const editButton = element.shadowRoot?.querySelector('[data-testid="endpoint-edit"]') as HTMLButtonElement;
+    editButton?.click();
+
+    await flush(element);
+
+    const variantSelect = element.shadowRoot?.querySelector('#endpoint-variant') as HTMLSelectElement;
+    expect(variantSelect.value).toBe('large');
+  });
+
   it('allows activating and disabling an endpoint', async () => {
     const element = document.createElement('ux-admin-app') as any;
     document.body.appendChild(element);

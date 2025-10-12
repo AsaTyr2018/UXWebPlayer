@@ -14,6 +14,10 @@ import type {
   EndpointPlayerVariant,
   MediaAssetType
 } from '../types.js';
+import {
+  DEFAULT_ENDPOINT_PLAYER_VARIANT,
+  endpointPlayerVariants
+} from '../../types/endpoint.js';
 
 export type Tone = 'positive' | 'negative' | 'warning' | 'neutral';
 
@@ -58,7 +62,7 @@ const DEFAULT_BACKGROUND = '#ffffff';
 
 type RgbColor = { r: number; g: number; b: number };
 
-const ENDPOINT_VARIANT_ORDER: EndpointPlayerVariant[] = ['large', 'medium', 'small', 'background'];
+const ENDPOINT_VARIANT_ORDER = endpointPlayerVariants;
 
 const ENDPOINT_VARIANT_LABELS: Record<EndpointPlayerVariant, string> = {
   large: 'Large — Playlist, controls, visualization placeholder',
@@ -3900,7 +3904,10 @@ export class UxAdminApp extends LitElement {
       this.data = {
         ...this.data,
         metrics: { ...this.data.metrics, ...payload.metrics },
-        endpoints: payload.endpoints,
+        endpoints: payload.endpoints.map((endpoint) => ({
+          ...endpoint,
+          playerVariant: this.coerceEndpointVariant(endpoint.playerVariant)
+        })),
         playlists: payload.playlists,
         mediaLibrary: payload.mediaLibrary,
         analytics: payload.analytics ?? this.data.analytics,
@@ -4359,12 +4366,12 @@ export class UxAdminApp extends LitElement {
   }
 
   private coerceEndpointVariant(value: string | null | undefined): EndpointPlayerVariant {
-    const normalized = (value ?? '').trim();
-    if ((ENDPOINT_VARIANT_ORDER as readonly string[]).includes(normalized)) {
+    const normalized = (value ?? '').trim().toLowerCase();
+    if ((endpointPlayerVariants as readonly string[]).includes(normalized)) {
       return normalized as EndpointPlayerVariant;
     }
 
-    return 'medium';
+    return DEFAULT_ENDPOINT_PLAYER_VARIANT;
   }
 
   private mapEndpointTone(status: AdminEndpoint['status']): Tone {
