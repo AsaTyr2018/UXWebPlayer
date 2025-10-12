@@ -345,3 +345,13 @@
 **Rollback Plan:** Revert the embed loader change and restore the previous JSON module import once affected clients support import assertions.
 **Refs:** N/A
 
+## [2025-10-12 22:49] Await visualizer presets before starting embeds
+**Change Type:** Normal Change
+**Why:** Large embeds immediately reported "Visualizer presets unavailable" when the preset catalog had not finished loading.
+**What changed:** Deferred visualizer initialization until the preset fetch resolves, added a loading status, and documented the behavior.
+**Impact:** Large embeds now wait for the preset catalog on slower connections before activating the canvas; no API changes.
+**Testing:** `npm run test`
+**Docs:** README feature list updated with the load timing note.
+**Rollback Plan:** Revert the preset loading commit to restore the previous immediate initialization.
+**Refs:** N/A
+
