@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
+import { defineConfig } from 'vite';
 import { createAccessControlApp } from './src/server/access-control-app.js';
 
 const accessControlApiPlugin = () => ({
@@ -35,6 +36,11 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
-    environmentMatchGlobs: [['tests/server/**', 'node']]
+    environmentMatchGlobs: [['tests/server/**', 'node']],
+    sequence: {
+      concurrent: false
+    },
+    maxThreads: 1,
+    minThreads: 1
   }
 });

@@ -22,16 +22,24 @@ export interface AdminMetrics {
 }
 
 export type MediaAssetStatus = 'ready' | 'processing' | 'error';
-export type MediaAssetType = 'audio' | 'video';
+export type MediaAssetType = 'music' | 'video';
 
 export interface MediaAsset {
   id: string;
+  playlistId: string;
   title: string;
   type: MediaAssetType;
   durationSeconds: number;
   tags: string[];
   status: MediaAssetStatus;
   updatedAt: string;
+  artist?: string;
+  album?: string;
+  genre?: string;
+  year?: string;
+  description?: string;
+  size?: number;
+  originalName?: string;
 }
 
 export type PlaylistStatus = 'draft' | 'published' | 'scheduled' | 'needs_media' | 'archived';
@@ -39,8 +47,10 @@ export type PlaylistStatus = 'draft' | 'published' | 'scheduled' | 'needs_media'
 export interface AdminPlaylist {
   id: string;
   name: string;
+  type: MediaAssetType;
   status: PlaylistStatus;
   updatedAt: string;
+  createdAt?: string;
   owner: string;
   itemCount: number;
   endpointCount: number;

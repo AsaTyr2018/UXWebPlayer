@@ -8,7 +8,8 @@ import type {
   AdminPlaylist,
   AdminUser,
   AuditEvent,
-  DiagnosticCheck
+  DiagnosticCheck,
+  MediaAssetType
 } from '../types.js';
 
 export type Tone = 'positive' | 'negative' | 'warning' | 'neutral';
@@ -47,7 +48,14 @@ const NAV_SECTIONS: NavSection[] = [
 ];
 
 const ACCESS_API_BASE = '/api/access';
+const LIBRARY_API_BASE = '/api/library';
 const SESSION_STORAGE_KEY = 'ux-admin-session-token';
+
+type MediaLibraryStatePayload = {
+  metrics: AdminData['metrics'];
+  playlists: AdminPlaylist[];
+  mediaLibrary: AdminData['mediaLibrary'];
+};
 
 type AccessUsersPayload = {
   users: AdminUser[];
@@ -748,14 +756,23 @@ export class UxAdminApp extends LitElement {
       font-size: 14px;
     }
 
-    .form-group input {
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
       border-radius: 10px;
       border: 1px solid rgba(15, 23, 42, 0.12);
       padding: 12px;
       font: inherit;
     }
 
-    .form-group input:focus-visible {
+    .form-group textarea {
+      min-height: 96px;
+      resize: vertical;
+    }
+
+    .form-group input:focus-visible,
+    .form-group select:focus-visible,
+    .form-group textarea:focus-visible {
       outline: 2px solid var(--accent);
       outline-offset: 2px;
     }
@@ -770,6 +787,12 @@ export class UxAdminApp extends LitElement {
       margin: 0 0 16px;
       color: var(--positive);
       font-size: 14px;
+    }
+
+    .form-hint {
+      margin: 4px 0 0;
+      font-size: 13px;
+      color: var(--text-muted);
     }
 
     .invite-form {
@@ -796,6 +819,48 @@ export class UxAdminApp extends LitElement {
       display: flex;
       justify-content: flex-end;
       gap: 12px;
+    }
+
+    .playlist-form,
+    .media-upload-form,
+    .media-edit-form {
+      display: grid;
+      gap: 16px;
+      margin-top: 16px;
+      padding: 20px;
+      border-radius: 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+
+    .playlist-form h3,
+    .media-upload-form h3,
+    .media-edit-form h3 {
+      margin: 0;
+      font-size: 16px;
+      letter-spacing: -0.01em;
+    }
+
+    .playlist-form-actions,
+    .media-upload-actions,
+    .media-edit-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+
+    .media-edit-row td {
+      background: var(--surface);
+      border-top: none;
+    }
+
+    .media-empty {
+      padding: 24px;
+      background: var(--surface);
+      border-radius: 14px;
+      border: 1px dashed var(--border);
+      text-align: center;
+      color: var(--text-muted);
     }
 
     .signed-in-banner {
@@ -1099,6 +1164,66 @@ export class UxAdminApp extends LitElement {
   @state()
   private declare endpointCopyFeedback: string | null;
 
+  @state()
+  private declare libraryLoading: boolean;
+
+  @state()
+  private declare libraryError: string | null;
+
+  @state()
+  private declare playlistFormName: string;
+
+  @state()
+  private declare playlistFormType: MediaAssetType;
+
+  @state()
+  private declare playlistFormSubmitting: boolean;
+
+  @state()
+  private declare playlistFormError: string | null;
+
+  @state()
+  private declare mediaUploadOpen: boolean;
+
+  @state()
+  private declare mediaUploadPlaylistId: string;
+
+  @state()
+  private declare mediaUploadFiles: File[];
+
+  @state()
+  private declare mediaUploadError: string | null;
+
+  @state()
+  private declare mediaUploadPending: boolean;
+
+  @state()
+  private declare mediaEditAssetId: string | null;
+
+  @state()
+  private declare mediaEditTitle: string;
+
+  @state()
+  private declare mediaEditArtist: string;
+
+  @state()
+  private declare mediaEditAlbum: string;
+
+  @state()
+  private declare mediaEditGenre: string;
+
+  @state()
+  private declare mediaEditYear: string;
+
+  @state()
+  private declare mediaEditDescription: string;
+
+  @state()
+  private declare mediaEditError: string | null;
+
+  @state()
+  private declare mediaEditPending: boolean;
+
   private endpointCopyTimeout: number | null = null;
 
   constructor() {
@@ -1129,6 +1254,26 @@ export class UxAdminApp extends LitElement {
     this.endpointEditingId = null;
     this.endpointFormError = null;
     this.endpointCopyFeedback = null;
+    this.libraryLoading = false;
+    this.libraryError = null;
+    this.playlistFormName = '';
+    this.playlistFormType = 'music';
+    this.playlistFormSubmitting = false;
+    this.playlistFormError = null;
+    this.mediaUploadOpen = false;
+    this.mediaUploadPlaylistId = '';
+    this.mediaUploadFiles = [];
+    this.mediaUploadError = null;
+    this.mediaUploadPending = false;
+    this.mediaEditAssetId = null;
+    this.mediaEditTitle = '';
+    this.mediaEditArtist = '';
+    this.mediaEditAlbum = '';
+    this.mediaEditGenre = '';
+    this.mediaEditYear = '';
+    this.mediaEditDescription = '';
+    this.mediaEditError = null;
+    this.mediaEditPending = false;
   }
 
   connectedCallback() {
@@ -1416,131 +1561,348 @@ export class UxAdminApp extends LitElement {
   }
 
   private renderMediaLibrary() {
-    if (!this.data.mediaLibrary.length) {
-      return html`
-        <section class="page-panel" aria-label="Media library empty state">
-          <header>
-            <div>
-              <h2>Media Library</h2>
-              <p>Upload audio or video assets to make them available to playlists.</p>
-            </div>
-            <div class="table-actions">
-              <button type="button">Upload media</button>
-              <button type="button">Sync folders</button>
-            </div>
-          </header>
-          <div class="empty-state">
-            <strong>No media assets found.</strong>
-            Run the ingestion CLI or configure a remote adapter to populate the library.
-          </div>
-        </section>
-      `;
-    }
+    const playlists = this.data.playlists;
+    const assets = this.data.mediaLibrary;
+    const subtitle = this.libraryLoading
+      ? 'Loading media library…'
+      : assets.length > 0
+        ? `${assets.length} assets available for playlist curation.`
+        : 'Upload audio or video assets to make them available to playlists.';
+    const uploadLabel = this.mediaUploadOpen ? 'Cancel upload' : 'Upload media';
 
     return html`
       <section class="page-panel" aria-label="Media library">
         <header>
           <div>
             <h2>Media Library</h2>
-            <p>${this.data.mediaLibrary.length} assets available for playlist curation.</p>
+            <p>${subtitle}</p>
           </div>
           <div class="table-actions">
-            <button type="button">Upload media</button>
-            <button type="button">Sync folders</button>
+            <button type="button" @click=${this.toggleMediaUpload}>${uploadLabel}</button>
           </div>
         </header>
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Title</th>
-              <th scope="col">Type</th>
-              <th scope="col">Duration</th>
-              <th scope="col">Tags</th>
-              <th scope="col">Status</th>
-              <th scope="col">Last Updated</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${this.data.mediaLibrary.map(
-              (asset) => html`
-                <tr>
-                  <td>${asset.title}</td>
-                  <td>${asset.type}</td>
-                  <td>${this.formatDuration(asset.durationSeconds)}</td>
-                  <td>${asset.tags.join(', ') || '—'}</td>
-                  <td>
-                    <span class="badge ${this.mapAssetTone(asset.status)}">
-                      ${this.formatAssetStatus(asset.status)}
-                    </span>
-                  </td>
-                  <td>${asset.updatedAt}</td>
-                </tr>
-              `
-            )}
-          </tbody>
-        </table>
+        ${this.libraryError ? html`<p class="form-error" role="alert">${this.libraryError}</p>` : nothing}
+        ${this.mediaUploadOpen ? this.renderMediaUploadForm(playlists) : nothing}
+        ${this.libraryLoading
+          ? html`<div class="media-empty">Loading media library…</div>`
+          : assets.length === 0
+            ? html`<div class="media-empty">No media assets yet. Upload files to populate your playlists.</div>`
+            : html`
+                <table>
+                  <thead>
+                    <tr>
+                      <th scope="col">Title</th>
+                      <th scope="col">Playlist</th>
+                      <th scope="col">Type</th>
+                      <th scope="col">Artist</th>
+                      <th scope="col">Genre</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">Updated</th>
+                      <th scope="col">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${assets.map(
+                      (asset) => html`
+                        <tr>
+                          <td>${asset.title}</td>
+                          <td>${this.resolvePlaylistName(asset.playlistId)}</td>
+                          <td>${this.formatMediaType(asset.type)}</td>
+                          <td>${asset.artist || '—'}</td>
+                          <td>${asset.genre || '—'}</td>
+                          <td>
+                            <span class="badge ${this.mapAssetTone(asset.status)}">
+                              ${this.formatAssetStatus(asset.status)}
+                            </span>
+                          </td>
+                          <td>${this.formatLastActive(asset.updatedAt)}</td>
+                          <td>
+                            <div class="table-actions">
+                              <button type="button" @click=${() => this.openMediaEditor(asset)}>Edit</button>
+                              <button
+                                type="button"
+                                class="danger"
+                                @click=${() => this.handleMediaDelete(asset.id)}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                        ${this.mediaEditAssetId === asset.id
+                          ? html`
+                              <tr class="media-edit-row">
+                                <td colspan="8">${this.renderMediaEditForm(asset)}</td>
+                              </tr>
+                            `
+                          : nothing}
+                      `
+                    )}
+                  </tbody>
+                </table>
+              `}
       </section>
     `;
   }
 
-  private renderPlaylists() {
-    if (!this.data.playlists.length) {
+  private renderMediaUploadForm(playlists: AdminPlaylist[]) {
+    if (!playlists.length) {
       return html`
-        <section class="page-panel" aria-label="Playlist overview">
-          <header>
-            <div>
-              <h2>Playlists</h2>
-              <p>Create collections of media assets and publish them to endpoints.</p>
-            </div>
-            <button type="button">Create playlist</button>
-          </header>
-          <div class="empty-state">
-            <strong>No playlists yet.</strong>
-            Create a playlist to start arranging curated media experiences.
-          </div>
-        </section>
+        <div class="media-empty">
+          <strong>Create a playlist before uploading media.</strong>
+          New uploads must be associated with a playlist.
+        </div>
       `;
     }
 
+    const errorId = this.mediaUploadError ? 'media-upload-error' : undefined;
+    const accept = this.mediaUploadPlaylistId
+      ? this.getUploadAcceptForPlaylist(this.mediaUploadPlaylistId)
+      : 'audio/*,video/*';
+
     return html`
-      <section class="page-panel" aria-label="Playlists">
+      <form
+        class="media-upload-form"
+        @submit=${this.handleMediaUploadSubmit}
+        aria-describedby=${errorId ?? nothing}
+      >
+        <h3>Upload media</h3>
+        <div class="invite-grid">
+          <div class="form-group">
+            <label for="media-upload-playlist">Assign to playlist</label>
+            <select
+              id="media-upload-playlist"
+              name="playlist"
+              .value=${this.mediaUploadPlaylistId}
+              @change=${this.handleMediaUploadPlaylistChange}
+            >
+              ${playlists.map((playlist) => html`<option value=${playlist.id}>${playlist.name}</option>`)}
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="media-upload-files">Media files</label>
+            <input
+              id="media-upload-files"
+              name="files"
+              type="file"
+              multiple
+              accept=${accept}
+              @change=${this.handleMediaUploadFilesChange}
+            />
+            <p class="form-hint">
+              ${this.mediaUploadFiles.length
+                ? this.mediaUploadFiles.map((file) => file.name).join(', ')
+                : 'Select one or more files to upload.'}
+            </p>
+          </div>
+        </div>
+        ${this.mediaUploadError
+          ? html`<p class="form-error" id="media-upload-error" role="alert">${this.mediaUploadError}</p>`
+          : nothing}
+        <div class="media-upload-actions">
+          <button type="button" @click=${this.toggleMediaUpload}>Cancel</button>
+          <button type="submit" class="primary" ?disabled=${this.mediaUploadPending}>
+            ${this.mediaUploadPending ? 'Uploading…' : 'Start upload'}
+          </button>
+        </div>
+      </form>
+    `;
+  }
+
+  private renderMediaEditForm(asset: AdminData['mediaLibrary'][number]) {
+    const errorId = this.mediaEditError ? 'media-edit-error' : undefined;
+    return html`
+      <form
+        class="media-edit-form"
+        @submit=${this.handleMediaEditSubmit}
+        aria-describedby=${errorId ?? nothing}
+      >
+        <h3>Edit metadata for ${asset.title}</h3>
+        <div class="invite-grid">
+          <div class="form-group">
+            <label for="media-edit-title">Title</label>
+            <input
+              id="media-edit-title"
+              name="title"
+              type="text"
+              .value=${this.mediaEditTitle}
+              @input=${this.handleMediaEditInput}
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="media-edit-artist">Artist</label>
+            <input
+              id="media-edit-artist"
+              name="artist"
+              type="text"
+              .value=${this.mediaEditArtist}
+              @input=${this.handleMediaEditInput}
+            />
+          </div>
+          <div class="form-group">
+            <label for="media-edit-album">Album</label>
+            <input
+              id="media-edit-album"
+              name="album"
+              type="text"
+              .value=${this.mediaEditAlbum}
+              @input=${this.handleMediaEditInput}
+            />
+          </div>
+          <div class="form-group">
+            <label for="media-edit-genre">Genre</label>
+            <input
+              id="media-edit-genre"
+              name="genre"
+              type="text"
+              .value=${this.mediaEditGenre}
+              @input=${this.handleMediaEditInput}
+            />
+          </div>
+          <div class="form-group">
+            <label for="media-edit-year">Year</label>
+            <input
+              id="media-edit-year"
+              name="year"
+              type="text"
+              .value=${this.mediaEditYear}
+              @input=${this.handleMediaEditInput}
+            />
+          </div>
+          <div class="form-group">
+            <label for="media-edit-description">Description</label>
+            <textarea
+              id="media-edit-description"
+              name="description"
+              .value=${this.mediaEditDescription}
+              @input=${this.handleMediaEditInput}
+            ></textarea>
+          </div>
+        </div>
+        ${this.mediaEditError
+          ? html`<p class="form-error" id="media-edit-error" role="alert">${this.mediaEditError}</p>`
+          : nothing}
+        <div class="media-edit-actions">
+          <button type="button" @click=${this.closeMediaEditor}>Cancel</button>
+          <button type="submit" class="primary" ?disabled=${this.mediaEditPending}>
+            ${this.mediaEditPending ? 'Saving…' : 'Save changes'}
+          </button>
+        </div>
+      </form>
+    `;
+  }
+
+  private renderPlaylists() {
+    const playlists = this.data.playlists;
+    const subtitle = this.libraryLoading
+      ? 'Loading playlists…'
+      : playlists.length > 0
+        ? 'Manage playlists and review their media coverage.'
+        : 'Create playlists to start arranging curated media experiences.';
+
+    return html`
+      <section class="page-panel" aria-label="Playlist overview">
         <header>
           <div>
             <h2>Playlists</h2>
-            <p>Track publishing status and endpoint coverage for each playlist.</p>
+            <p>${subtitle}</p>
           </div>
-          <button type="button">Create playlist</button>
         </header>
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Playlist</th>
-              <th scope="col">Status</th>
-              <th scope="col">Items</th>
-              <th scope="col">Endpoints</th>
-              <th scope="col">Owner</th>
-              <th scope="col">Last Updated</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${this.data.playlists.map(
-              (playlist) => html`
-                <tr>
-                  <td>${playlist.name}</td>
-                  <td>
-                    <span class="badge ${this.mapPlaylistTone(playlist.status)}">
-                      ${this.formatPlaylistStatus(playlist.status)}
-                    </span>
-                  </td>
-                  <td>${playlist.itemCount}</td>
-                  <td>${playlist.endpointCount}</td>
-                  <td>${playlist.owner}</td>
-                  <td>${playlist.updatedAt}</td>
-                </tr>
-              `
-            )}
-          </tbody>
-        </table>
+        <form class="playlist-form" @submit=${this.handlePlaylistFormSubmit}>
+          <h3>Create playlist</h3>
+          <div class="invite-grid">
+            <div class="form-group">
+              <label for="playlist-name">Name</label>
+              <input
+                id="playlist-name"
+                name="name"
+                type="text"
+                placeholder="Morning acoustic"
+                .value=${this.playlistFormName}
+                @input=${this.handlePlaylistNameInput}
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="playlist-type">Type</label>
+              <select
+                id="playlist-type"
+                name="type"
+                .value=${this.playlistFormType}
+                @change=${this.handlePlaylistTypeChange}
+              >
+                <option value="music">Music</option>
+                <option value="video">Video</option>
+              </select>
+              <p class="form-hint">
+                ${this.playlistFormType === 'music'
+                  ? 'Audio uploads are stored under media/music.'
+                  : 'Video uploads are stored under media/video.'}
+              </p>
+            </div>
+          </div>
+          ${this.playlistFormError
+            ? html`<p class="form-error" role="alert">${this.playlistFormError}</p>`
+            : nothing}
+          <div class="playlist-form-actions">
+            <button type="submit" class="primary" ?disabled=${this.playlistFormSubmitting}>
+              ${this.playlistFormSubmitting ? 'Creating…' : 'Create playlist'}
+            </button>
+          </div>
+        </form>
+        ${this.libraryError ? html`<p class="form-error" role="alert">${this.libraryError}</p>` : nothing}
+        ${this.libraryLoading
+          ? html`<div class="media-empty">Loading playlists…</div>`
+          : playlists.length === 0
+            ? html`<div class="media-empty">No playlists yet. Create your first playlist above.</div>`
+            : html`
+                <table>
+                  <thead>
+                    <tr>
+                      <th scope="col">Playlist</th>
+                      <th scope="col">Type</th>
+                      <th scope="col">Items</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">Created</th>
+                      <th scope="col">Updated</th>
+                      <th scope="col">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${playlists.map(
+                      (playlist) => html`
+                        <tr>
+                          <td>${playlist.name}</td>
+                          <td>${this.formatMediaType(playlist.type)}</td>
+                          <td>${playlist.itemCount}</td>
+                          <td>
+                            <span class="badge ${this.mapPlaylistTone(playlist.status)}">
+                              ${this.formatPlaylistStatus(playlist.status)}
+                            </span>
+                          </td>
+                          <td>${this.formatLastActive(playlist.createdAt ?? playlist.updatedAt)}</td>
+                          <td>${this.formatLastActive(playlist.updatedAt)}</td>
+                          <td>
+                            <div class="table-actions">
+                              <button type="button" @click=${() => this.handlePlaylistRename(playlist)}>
+                                Rename
+                              </button>
+                              <button
+                                type="button"
+                                class="danger"
+                                @click=${() => this.handlePlaylistDelete(playlist)}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      `
+                    )}
+                  </tbody>
+                </table>
+              `}
       </section>
     `;
   }
@@ -1820,6 +2182,342 @@ export class UxAdminApp extends LitElement {
     }
   }
 
+  private handlePlaylistNameInput(event: Event) {
+    const target = event.target as HTMLInputElement | null;
+    this.playlistFormName = target?.value ?? '';
+    if (this.playlistFormError) {
+      this.playlistFormError = null;
+    }
+  }
+
+  private handlePlaylistTypeChange(event: Event) {
+    const target = event.target as HTMLSelectElement | null;
+    if (!target) {
+      return;
+    }
+
+    this.playlistFormType = (target.value as MediaAssetType) || 'music';
+    if (this.playlistFormError) {
+      this.playlistFormError = null;
+    }
+  }
+
+  private async handlePlaylistFormSubmit(event: Event) {
+    event.preventDefault();
+    if (this.playlistFormSubmitting) {
+      return;
+    }
+
+    const name = this.playlistFormName.trim();
+    if (!name) {
+      this.playlistFormError = 'Playlist name is required.';
+      return;
+    }
+
+    this.playlistFormSubmitting = true;
+    this.playlistFormError = null;
+
+    try {
+      const response = await this.authorizedFetch(`${LIBRARY_API_BASE}/playlists`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ name, type: this.playlistFormType })
+      });
+
+      if (!response.ok) {
+        throw new Error(await this.readApiError(response));
+      }
+
+      this.playlistFormName = '';
+      this.playlistFormType = 'music';
+      await this.refreshLibraryState();
+
+      if (this.mediaUploadOpen && this.data.playlists.length) {
+        this.mediaUploadPlaylistId = this.data.playlists[0].id;
+      }
+    } catch (error) {
+      this.playlistFormError = this.getErrorMessage(error, 'Unable to create playlist.');
+    } finally {
+      this.playlistFormSubmitting = false;
+    }
+  }
+
+  private async handlePlaylistRename(playlist: AdminPlaylist) {
+    const nextName = window.prompt('Rename playlist', playlist.name);
+    if (nextName === null) {
+      return;
+    }
+
+    const trimmed = nextName.trim();
+    if (!trimmed) {
+      this.libraryError = 'Playlist name cannot be empty.';
+      return;
+    }
+
+    if (trimmed === playlist.name) {
+      return;
+    }
+
+    try {
+      const response = await this.authorizedFetch(`${LIBRARY_API_BASE}/playlists/${playlist.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ name: trimmed })
+      });
+
+      if (!response.ok) {
+        throw new Error(await this.readApiError(response));
+      }
+
+      await this.refreshLibraryState();
+      this.libraryError = null;
+    } catch (error) {
+      this.libraryError = this.getErrorMessage(error, 'Unable to rename playlist.');
+    }
+  }
+
+  private async handlePlaylistDelete(playlist: AdminPlaylist) {
+    const confirmed = window.confirm(
+      `Delete playlist "${playlist.name}"? All associated media files will be removed.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const response = await this.authorizedFetch(`${LIBRARY_API_BASE}/playlists/${playlist.id}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        throw new Error(await this.readApiError(response));
+      }
+
+      if (this.mediaUploadPlaylistId === playlist.id) {
+        this.mediaUploadPlaylistId = '';
+      }
+
+      await this.refreshLibraryState();
+      this.libraryError = null;
+    } catch (error) {
+      this.libraryError = this.getErrorMessage(error, 'Unable to delete playlist.');
+    }
+  }
+
+  private toggleMediaUpload() {
+    if (this.mediaUploadOpen) {
+      this.mediaUploadOpen = false;
+      this.mediaUploadFiles = [];
+      this.mediaUploadError = null;
+      return;
+    }
+
+    if (!this.mediaUploadPlaylistId && this.data.playlists.length) {
+      this.mediaUploadPlaylistId = this.data.playlists[0].id;
+    }
+
+    this.mediaUploadOpen = true;
+    this.mediaUploadFiles = [];
+    this.mediaUploadError = null;
+  }
+
+  private handleMediaUploadPlaylistChange(event: Event) {
+    const target = event.target as HTMLSelectElement | null;
+    this.mediaUploadPlaylistId = target?.value ?? '';
+  }
+
+  private handleMediaUploadFilesChange(event: Event) {
+    const target = event.target as HTMLInputElement | null;
+    this.mediaUploadFiles = Array.from(target?.files ?? []);
+    if (this.mediaUploadError) {
+      this.mediaUploadError = null;
+    }
+  }
+
+  private async handleMediaUploadSubmit(event: Event) {
+    event.preventDefault();
+    if (this.mediaUploadPending) {
+      return;
+    }
+
+    const playlistId = this.mediaUploadPlaylistId;
+    if (!playlistId) {
+      this.mediaUploadError = 'Select a playlist for the upload.';
+      return;
+    }
+
+    if (this.mediaUploadFiles.length === 0) {
+      this.mediaUploadError = 'Choose at least one file to upload.';
+      return;
+    }
+
+    const formData = new FormData();
+    for (const file of this.mediaUploadFiles) {
+      formData.append('files', file);
+    }
+
+    this.mediaUploadPending = true;
+    this.mediaUploadError = null;
+
+    try {
+      const response = await this.authorizedFetch(`${LIBRARY_API_BASE}/playlists/${playlistId}/assets`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(await this.readApiError(response));
+      }
+
+      this.mediaUploadFiles = [];
+      this.mediaUploadOpen = false;
+      await this.refreshLibraryState();
+    } catch (error) {
+      this.mediaUploadError = this.getErrorMessage(error, 'Upload failed. Please try again.');
+    } finally {
+      this.mediaUploadPending = false;
+    }
+  }
+
+  private openMediaEditor(asset: AdminData['mediaLibrary'][number]) {
+    this.mediaEditAssetId = asset.id;
+    this.mediaEditTitle = asset.title;
+    this.mediaEditArtist = asset.artist ?? '';
+    this.mediaEditAlbum = asset.album ?? '';
+    this.mediaEditGenre = asset.genre ?? '';
+    this.mediaEditYear = asset.year ?? '';
+    this.mediaEditDescription = asset.description ?? '';
+    this.mediaEditError = null;
+  }
+
+  private closeMediaEditor() {
+    this.mediaEditAssetId = null;
+    this.mediaEditTitle = '';
+    this.mediaEditArtist = '';
+    this.mediaEditAlbum = '';
+    this.mediaEditGenre = '';
+    this.mediaEditYear = '';
+    this.mediaEditDescription = '';
+    this.mediaEditError = null;
+    this.mediaEditPending = false;
+  }
+
+  private handleMediaEditInput(event: Event) {
+    const target = event.target as HTMLInputElement | HTMLTextAreaElement | null;
+    if (!target) {
+      return;
+    }
+
+    switch (target.name) {
+      case 'title':
+        this.mediaEditTitle = target.value;
+        break;
+      case 'artist':
+        this.mediaEditArtist = target.value;
+        break;
+      case 'album':
+        this.mediaEditAlbum = target.value;
+        break;
+      case 'genre':
+        this.mediaEditGenre = target.value;
+        break;
+      case 'year':
+        this.mediaEditYear = target.value;
+        break;
+      case 'description':
+        this.mediaEditDescription = target.value;
+        break;
+      default:
+        break;
+    }
+
+    if (this.mediaEditError) {
+      this.mediaEditError = null;
+    }
+  }
+
+  private async handleMediaEditSubmit(event: Event) {
+    event.preventDefault();
+    if (this.mediaEditPending || !this.mediaEditAssetId) {
+      return;
+    }
+
+    const title = this.mediaEditTitle.trim();
+    if (!title) {
+      this.mediaEditError = 'Title is required.';
+      return;
+    }
+
+    this.mediaEditPending = true;
+    this.mediaEditError = null;
+
+    try {
+      const response = await this.authorizedFetch(`${LIBRARY_API_BASE}/assets/${this.mediaEditAssetId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title,
+          artist: this.mediaEditArtist,
+          album: this.mediaEditAlbum,
+          genre: this.mediaEditGenre,
+          year: this.mediaEditYear,
+          description: this.mediaEditDescription
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(await this.readApiError(response));
+      }
+
+      await this.refreshLibraryState();
+      this.closeMediaEditor();
+    } catch (error) {
+      this.mediaEditError = this.getErrorMessage(error, 'Unable to save metadata changes.');
+    } finally {
+      this.mediaEditPending = false;
+    }
+  }
+
+  private async handleMediaDelete(assetId: string) {
+    const asset = this.data.mediaLibrary.find((item) => item.id === assetId);
+    if (!asset) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete "${asset.title}"? The file will be removed from ${this.resolvePlaylistName(asset.playlistId)}.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const response = await this.authorizedFetch(`${LIBRARY_API_BASE}/assets/${assetId}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        throw new Error(await this.readApiError(response));
+      }
+
+      if (this.mediaEditAssetId === assetId) {
+        this.closeMediaEditor();
+      }
+
+      await this.refreshLibraryState();
+    } catch (error) {
+      this.libraryError = this.getErrorMessage(error, 'Unable to delete media asset.');
+    }
+  }
+
   private async handleCopyEndpointUrl(url: string) {
     if (!url) {
       return;
@@ -1881,6 +2579,15 @@ export class UxAdminApp extends LitElement {
 
     const playlist = this.data.playlists.find((item) => item.id === playlistId);
     return playlist?.name ?? 'Unassigned';
+  }
+
+  private getUploadAcceptForPlaylist(playlistId: string): string {
+    const playlist = this.data.playlists.find((item) => item.id === playlistId);
+    if (!playlist) {
+      return 'audio/*,video/*';
+    }
+
+    return playlist.type === 'video' ? 'video/*' : 'audio/*';
   }
 
   private persistEndpoints(endpoints: AdminEndpoint[]) {
@@ -2294,6 +3001,26 @@ export class UxAdminApp extends LitElement {
       this.inviteFormOpen = false;
       this.resetInviteForm();
       this.inviteSuccess = null;
+      this.libraryLoading = false;
+      this.libraryError = null;
+      this.playlistFormName = '';
+      this.playlistFormType = 'music';
+      this.playlistFormSubmitting = false;
+      this.playlistFormError = null;
+      this.mediaUploadOpen = false;
+      this.mediaUploadPlaylistId = '';
+      this.mediaUploadFiles = [];
+      this.mediaUploadError = null;
+      this.mediaUploadPending = false;
+      this.mediaEditAssetId = null;
+      this.mediaEditTitle = '';
+      this.mediaEditArtist = '';
+      this.mediaEditAlbum = '';
+      this.mediaEditGenre = '';
+      this.mediaEditYear = '';
+      this.mediaEditDescription = '';
+      this.mediaEditError = null;
+      this.mediaEditPending = false;
     }
   }
 
@@ -2335,6 +3062,7 @@ export class UxAdminApp extends LitElement {
     this.loginUsername = '';
     this.loginPassword = '';
     this.loginError = null;
+    void this.refreshLibraryState();
   }
 
   private applyUsersState(payload: AccessUsersPayload) {
@@ -2486,6 +3214,49 @@ export class UxAdminApp extends LitElement {
       ...init,
       headers
     });
+  }
+
+  private async refreshLibraryState(options: { showLoading?: boolean } = {}) {
+    if (!this.sessionToken) {
+      return;
+    }
+
+    const { showLoading = true } = options;
+    if (showLoading) {
+      this.libraryLoading = true;
+    }
+
+    this.libraryError = null;
+
+    try {
+      const response = await this.authorizedFetch(`${LIBRARY_API_BASE}/state`);
+      if (!response.ok) {
+        throw new Error(await this.readApiError(response));
+      }
+
+      const payload = (await response.json()) as MediaLibraryStatePayload;
+      this.data = {
+        ...this.data,
+        metrics: { ...this.data.metrics, ...payload.metrics },
+        playlists: payload.playlists,
+        mediaLibrary: payload.mediaLibrary
+      };
+
+      if (payload.playlists.length) {
+        const matches = payload.playlists.some((playlist) => playlist.id === this.mediaUploadPlaylistId);
+        if (!matches) {
+          this.mediaUploadPlaylistId = payload.playlists[0].id;
+        }
+      } else {
+        this.mediaUploadPlaylistId = '';
+      }
+    } catch (error) {
+      this.libraryError = this.getErrorMessage(error, 'Unable to load media library.');
+    } finally {
+      if (showLoading) {
+        this.libraryLoading = false;
+      }
+    }
   }
 
   private async readApiError(response: Response): Promise<string> {
@@ -2908,6 +3679,16 @@ export class UxAdminApp extends LitElement {
     }
   }
 
+  private formatMediaType(type: MediaAssetType): string {
+    switch (type) {
+      case 'video':
+        return 'Video';
+      case 'music':
+      default:
+        return 'Music';
+    }
+  }
+
   private mapEndpointTone(status: AdminEndpoint['status']): Tone {
     switch (status) {
       case 'operational':
@@ -2952,18 +3733,6 @@ export class UxAdminApp extends LitElement {
     }
 
     return 'neutral';
-  }
-
-  private formatDuration(duration: number): string {
-    if (!Number.isFinite(duration) || duration <= 0) {
-      return '—';
-    }
-
-    const minutes = Math.floor(duration / 60);
-    const seconds = Math.floor(duration % 60)
-      .toString()
-      .padStart(2, '0');
-    return `${minutes}:${seconds}`;
   }
 
   private mapAssetTone(status: string): Tone {

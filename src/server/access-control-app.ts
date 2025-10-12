@@ -1,5 +1,5 @@
 import cors from 'cors';
-import express, { type Request } from 'express';
+import express from 'express';
 import {
   AuthenticationError,
   ValidationError,
@@ -10,31 +10,8 @@ import {
   listAdminUsers
 } from './access-control-service.js';
 import { createSession, deleteSession, requireSession } from './session-store.js';
-
-const extractToken = (request: Request) => {
-  const header = request.get('authorization');
-  if (!header) {
-    return null;
-  }
-
-  const [scheme, token] = header.split(' ');
-  if (scheme?.toLowerCase() !== 'bearer' || !token) {
-    return null;
-  }
-
-  return token;
-};
-
-const requireToken = (request: Request) => {
-  const token = extractToken(request);
-  if (!token) {
-    const error = new Error('Missing or invalid Authorization header.');
-    error.name = 'SessionError';
-    throw error;
-  }
-
-  return token;
-};
+import { createMediaLibraryRouter } from './media-library-app.js';
+import { extractBearerToken, requireBearerToken } from './http-auth.js';
 
 export const createAccessControlApp = () => {
   const app = express();
@@ -63,7 +40,7 @@ export const createAccessControlApp = () => {
   });
 
   app.post('/api/access/logout', (request, response) => {
-    const token = extractToken(request);
+    const token = extractBearerToken(request);
     if (token) {
       deleteSession(token);
     }
@@ -73,7 +50,7 @@ export const createAccessControlApp = () => {
 
   app.get('/api/access/session', (request, response, next) => {
     try {
-      const token = requireToken(request);
+      const token = requireBearerToken(request);
       const session = requireSession(token);
       const user = getAdminUserById(session.userId);
 
@@ -95,7 +72,7 @@ export const createAccessControlApp = () => {
 
   app.get('/api/access/users', (request, response, next) => {
     try {
-      const token = requireToken(request);
+      const token = requireBearerToken(request);
       requireSession(token);
 
       response.json({
@@ -109,7 +86,7 @@ export const createAccessControlApp = () => {
 
   app.post('/api/access/users', (request, response, next) => {
     try {
-      const token = requireToken(request);
+      const token = requireBearerToken(request);
       requireSession(token);
 
       const { name, username, email, password, role } = request.body ?? {};
@@ -133,6 +110,8 @@ export const createAccessControlApp = () => {
       next(error);
     }
   });
+
+  app.use('/api/library', createMediaLibraryRouter());
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   app.use((error: any, _request: Request, response: express.Response, _next: express.NextFunction) => {
@@ -160,3 +139,4 @@ export const createAccessControlApp = () => {
 };
 
 export type AccessControlApp = ReturnType<typeof createAccessControlApp>;
+

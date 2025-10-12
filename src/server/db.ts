@@ -98,35 +98,46 @@ const createDefaultAdmin = () => {
   const timestamp = new Date().toISOString();
   const passwordHash = bcrypt.hashSync(DEFAULT_ADMIN_PASSWORD, 10);
 
-  db.prepare(
-    `INSERT INTO admin_users (
+  try {
+    db.prepare(
+      `INSERT INTO admin_users (
+        id,
+        username,
+        username_normalized,
+        password_hash,
+        name,
+        email,
+        email_normalized,
+        role,
+        status,
+        is_default,
+        created_at,
+        last_active
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
       id,
-      username,
-      username_normalized,
-      password_hash,
-      name,
-      email,
-      email_normalized,
-      role,
-      status,
-      is_default,
-      created_at,
-      last_active
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    id,
-    DEFAULT_ADMIN_USERNAME,
-    DEFAULT_ADMIN_USERNAME.toLowerCase(),
-    passwordHash,
-    DEFAULT_ADMIN_NAME,
-    DEFAULT_ADMIN_EMAIL,
-    DEFAULT_ADMIN_EMAIL.toLowerCase(),
-    DEFAULT_ROLE,
-    DEFAULT_STATUS,
-    1,
-    timestamp,
-    null
-  );
+      DEFAULT_ADMIN_USERNAME,
+      DEFAULT_ADMIN_USERNAME.toLowerCase(),
+      passwordHash,
+      DEFAULT_ADMIN_NAME,
+      DEFAULT_ADMIN_EMAIL,
+      DEFAULT_ADMIN_EMAIL.toLowerCase(),
+      DEFAULT_ROLE,
+      DEFAULT_STATUS,
+      1,
+      timestamp,
+      null
+    );
+  } catch (error) {
+    if (typeof error === 'object' && error && 'code' in error) {
+      const code = (error as { code?: string }).code;
+      if (code === 'SQLITE_CONSTRAINT_UNIQUE') {
+        return;
+      }
+    }
+
+    throw error;
+  }
 };
 
 if (!hasAnyUsers()) {
