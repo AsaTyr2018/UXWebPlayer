@@ -96,3 +96,13 @@
 **Docs:** README updated with new dev server details
 **Rollback Plan:** Revert the Vite config and README updates
 **Refs:** N/A
+
+## [2025-10-12 15:30] Build admin pages and remove demo data
+**Change Type:** Normal Change
+**Why:** Replace the one-page dashboard mock with a navigable admin console ready for real data sources
+**What changed:** Added typed admin data models, empty state scaffolding for every admin page, removed hard-coded demo arrays, enabled runtime data bootstrapping, refreshed tests, and documented the new workflow
+**Impact:** Developers see zeroed metrics and guidance until live data is supplied; all admin sections are now reachable within the component
+**Testing:** `npm run test`
+**Docs:** README updated with navigation overview and data bootstrapping instructions
+**Rollback Plan:** Revert commit and restore previous demo-driven component implementation
+**Refs:** N/A

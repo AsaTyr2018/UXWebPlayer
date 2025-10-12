@@ -1,35 +1,49 @@
-import { LitElement, css, html } from 'lit';
-import { customElement } from 'lit/decorators.js';
+import { LitElement, css, html, nothing } from 'lit';
+import { customElement, property, state } from 'lit/decorators.js';
+import { createEmptyAdminData } from '../state/empty-admin-data.js';
+import type {
+  AdminData,
+  AdminEndpoint,
+  AdminPage,
+  AdminPlaylist,
+  AuditEvent,
+  DiagnosticCheck
+} from '../types.js';
 
-type Tone = 'positive' | 'negative' | 'warning' | 'neutral';
+export type Tone = 'positive' | 'negative' | 'warning' | 'neutral';
 
-type StatCard = {
+type NavItem = {
   label: string;
-  value: string;
-  badge: { label: string; tone: Tone };
-  trend: { label: string; tone: Tone };
+  page: AdminPage;
 };
 
-type PlaylistEntry = {
-  name: string;
-  status: { label: string; tone: Tone };
-  updated: string;
-  owner: string;
+type NavSection = {
+  title: string;
+  items: NavItem[];
 };
 
-type EndpointHealth = {
-  name: string;
-  subtitle: string;
-  tone: Tone;
-};
-
-type TimelineEvent = {
-  tone: Tone;
-  actor: string;
-  action: string;
-  target: string;
-  timestamp: string;
-};
+const NAV_SECTIONS: NavSection[] = [
+  {
+    title: 'Overview',
+    items: [
+      { label: 'Dashboard', page: 'dashboard' },
+      { label: 'Media Library', page: 'media-library' },
+      { label: 'Playlists', page: 'playlists' },
+      { label: 'Endpoints', page: 'endpoints' },
+      { label: 'Analytics', page: 'analytics' },
+      { label: 'Branding', page: 'branding' }
+    ]
+  },
+  {
+    title: 'Administration',
+    items: [
+      { label: 'Access Control', page: 'access-control' },
+      { label: 'Configuration', page: 'configuration' },
+      { label: 'Diagnostics', page: 'diagnostics' },
+      { label: 'Audit Trail', page: 'audit-trail' }
+    ]
+  }
+];
 
 @customElement('ux-admin-app')
 export class UxAdminApp extends LitElement {
@@ -123,18 +137,27 @@ export class UxAdminApp extends LitElement {
       margin: 16px 0 4px;
     }
 
-    .nav-link {
+    .nav-button {
+      display: flex;
+      width: 100%;
+      align-items: center;
       padding: 10px 12px;
       border-radius: 8px;
       color: rgba(226, 232, 240, 0.86);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      text-align: left;
       transition: background 0.2s ease, color 0.2s ease;
     }
 
-    .nav-link:hover {
+    .nav-button:hover,
+    .nav-button:focus-visible {
       background: rgba(148, 163, 184, 0.15);
+      outline: none;
     }
 
-    .nav-link.is-active {
+    .nav-button.is-active {
       background: rgba(59, 130, 246, 0.25);
       color: #fff;
     }
@@ -202,6 +225,7 @@ export class UxAdminApp extends LitElement {
       outline: none;
       font: inherit;
       width: 280px;
+      background: transparent;
     }
 
     .user {
@@ -242,6 +266,8 @@ export class UxAdminApp extends LitElement {
       font-weight: 600;
       cursor: pointer;
       transition: transform 0.2s ease, box-shadow 0.2s ease;
+      background: rgba(15, 23, 42, 0.06);
+      color: var(--text);
     }
 
     button:focus-visible {
@@ -265,11 +291,6 @@ export class UxAdminApp extends LitElement {
       color: white;
     }
 
-    button.ghost {
-      background: rgba(15, 23, 42, 0.06);
-      color: var(--text);
-    }
-
     .stats {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -284,6 +305,7 @@ export class UxAdminApp extends LitElement {
       border: 1px solid rgba(15, 23, 42, 0.05);
       display: grid;
       gap: 12px;
+      align-content: start;
     }
 
     .stat-card header {
@@ -329,6 +351,7 @@ export class UxAdminApp extends LitElement {
       border-radius: 999px;
       background: rgba(148, 163, 184, 0.16);
       color: rgba(71, 85, 105, 0.9);
+      white-space: nowrap;
     }
 
     .badge.positive {
@@ -357,7 +380,8 @@ export class UxAdminApp extends LitElement {
       gap: 24px;
     }
 
-    .panel {
+    .panel,
+    .page-panel {
       background: var(--surface);
       border-radius: 20px;
       padding: 24px;
@@ -368,20 +392,23 @@ export class UxAdminApp extends LitElement {
       align-content: start;
     }
 
-    .panel header {
+    .panel header,
+    .page-panel header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 16px;
     }
 
-    .panel h2 {
+    .panel h2,
+    .page-panel h2 {
       margin: 0;
       font-size: 20px;
       letter-spacing: -0.01em;
     }
 
-    .panel p {
+    .panel p,
+    .page-panel p {
       margin: 4px 0 0;
       color: var(--text-muted);
       font-size: 14px;
@@ -443,9 +470,9 @@ export class UxAdminApp extends LitElement {
     }
 
     .list-subtitle {
-      margin: 4px 0 0;
+      margin: 6px 0 0;
       color: var(--text-muted);
-      font-size: 13px;
+      font-size: 14px;
     }
 
     .list-subtitle.warning {
@@ -457,30 +484,25 @@ export class UxAdminApp extends LitElement {
       margin: 0;
       padding: 0;
       display: grid;
-      gap: 18px;
+      gap: 16px;
     }
 
     .timeline li {
       display: grid;
       grid-template-columns: 16px 1fr;
-      gap: 12px;
-      align-items: start;
+      gap: 16px;
     }
 
     .timeline-dot {
-      width: 10px;
-      height: 10px;
+      width: 12px;
+      height: 12px;
       border-radius: 999px;
       margin-top: 6px;
-      background: rgba(148, 163, 184, 0.4);
+      background: var(--accent);
     }
 
     .timeline-dot.positive {
       background: var(--positive);
-    }
-
-    .timeline-dot.neutral {
-      background: rgba(148, 163, 184, 0.8);
     }
 
     .timeline-dot.warning {
@@ -491,27 +513,99 @@ export class UxAdminApp extends LitElement {
       background: var(--negative);
     }
 
-    .timeline time {
+    .empty-state {
+      display: grid;
+      gap: 8px;
+      padding: 32px;
+      background: rgba(148, 163, 184, 0.12);
+      border-radius: 16px;
+      text-align: center;
       color: var(--text-muted);
-      font-size: 12px;
+      font-size: 14px;
     }
 
-    @media (max-width: 1024px) {
+    .empty-state strong {
+      color: var(--text);
+    }
+
+    .page-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 24px;
+    }
+
+    .page-grid.full-width {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .metadata-list {
+      display: grid;
+      gap: 12px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .metadata-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .metadata-item span:first-child {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .metadata-item span:last-child {
+      font-weight: 600;
+    }
+
+    .analytics-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 20px;
+    }
+
+    .analytics-card {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 20px;
+      border: 1px solid rgba(15, 23, 42, 0.05);
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
+      display: grid;
+      gap: 12px;
+    }
+
+    .analytics-value {
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .analytics-delta.positive {
+      color: var(--positive);
+    }
+
+    .analytics-delta.negative {
+      color: var(--negative);
+    }
+
+    .table-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    @media (max-width: 1280px) {
       .dashboard {
         grid-template-columns: 1fr;
       }
 
       .sidebar {
-        position: sticky;
-        top: 0;
         flex-direction: row;
-        overflow-x: auto;
-        gap: 20px;
-      }
-
-      .nav {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 12px;
+        align-items: flex-start;
+        gap: 24px;
+        flex-wrap: wrap;
       }
 
       .sidebar-footer {
@@ -545,6 +639,14 @@ export class UxAdminApp extends LitElement {
       }
 
       .content-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .page-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .analytics-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
@@ -582,111 +684,41 @@ export class UxAdminApp extends LitElement {
       .content-grid {
         grid-template-columns: 1fr;
       }
+
+      .analytics-grid {
+        grid-template-columns: 1fr;
+      }
     }
   `;
 
-  private readonly stats: StatCard[] = [
-    {
-      label: 'Total Media Assets',
-      value: '1,284',
-      badge: { label: '+24 new', tone: 'neutral' },
-      trend: { label: '+4.2% vs last week', tone: 'positive' }
-    },
-    {
-      label: 'Published Playlists',
-      value: '38',
-      badge: { label: 'Live', tone: 'positive' },
-      trend: { label: '98% synced', tone: 'positive' }
-    },
-    {
-      label: 'Active Endpoints',
-      value: '14',
-      badge: { label: '2 pending', tone: 'warning' },
-      trend: { label: 'Sync delayed on 2 embeds', tone: 'warning' }
-    },
-    {
-      label: 'Playback Errors',
-      value: '5',
-      badge: { label: 'Alerts', tone: 'negative' },
-      trend: { label: '-2 since yesterday', tone: 'negative' }
-    }
-  ];
+  private readonly numberFormatter = new Intl.NumberFormat('en-US');
 
-  private readonly playlists: PlaylistEntry[] = [
-    {
-      name: 'Featured Acoustic Sessions',
-      status: { label: 'Ready', tone: 'positive' },
-      updated: 'Today 09:12',
-      owner: 'Alex Doe'
-    },
-    {
-      name: 'Morning Focus Mix',
-      status: { label: 'Draft', tone: 'neutral' },
-      updated: 'Today 08:43',
-      owner: 'Casey Lee'
-    },
-    {
-      name: 'Podcast Spotlight',
-      status: { label: 'Needs media', tone: 'warning' },
-      updated: 'Yesterday 21:18',
-      owner: 'Jordan Smith'
-    },
-    {
-      name: 'Video Launchpad',
-      status: { label: 'Scheduled', tone: 'positive' },
-      updated: 'Yesterday 17:02',
-      owner: 'Alex Doe'
-    }
-  ];
+  private _data: AdminData = createEmptyAdminData();
 
-  private readonly endpoints: EndpointHealth[] = [
-    {
-      name: 'Homepage Hero Widget',
-      subtitle: 'Last sync 38 seconds ago',
-      tone: 'positive'
-    },
-    {
-      name: 'Mobile App Feed',
-      subtitle: 'Sync delayed · Investigating CDN',
-      tone: 'warning'
-    },
-    {
-      name: 'Partner Portal Playlist',
-      subtitle: 'Last sync 4 minutes ago',
-      tone: 'neutral'
-    }
-  ];
+  @property({ attribute: false })
+  get data(): AdminData {
+    return this._data;
+  }
 
-  private readonly timeline: TimelineEvent[] = [
-    {
-      tone: 'positive',
-      actor: 'Alex Doe',
-      action: 'published',
-      target: 'Featured Acoustic Sessions',
-      timestamp: 'Today · 09:15'
-    },
-    {
-      tone: 'neutral',
-      actor: 'Casey Lee',
-      action: 'uploaded 12 audio files to',
-      target: 'Morning Focus Mix',
-      timestamp: 'Today · 08:47'
-    },
-    {
-      tone: 'warning',
-      actor: 'Monitoring Bot',
-      action: 'flagged sync delay on',
-      target: 'Mobile App Feed',
-      timestamp: 'Today · 08:05'
-    },
-    {
-      tone: 'negative',
-      actor: 'Jordan Smith',
-      action: 'rolled back',
-      target: 'Video Launchpad manifest',
-      timestamp: 'Yesterday · 19:32'
-    }
-  ];
+  set data(value: AdminData) {
+    const merged = this.mergeAdminData(value);
+    const oldValue = this._data;
+    this._data = merged;
+    this.requestUpdate('data', oldValue);
+  }
+
+  @state()
+  private declare activePage: AdminPage;
+
+  constructor() {
+    super();
+    this.activePage = 'dashboard';
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    this.bootstrapFromWindow();
+  }
 
   protected render() {
     return html`
@@ -700,23 +732,17 @@ export class UxAdminApp extends LitElement {
             </div>
           </div>
           <nav class="nav" aria-label="Primary">
-            <p class="nav-section">Overview</p>
-            ${this.renderNavLink('Dashboard', true)}
-            ${this.renderNavLink('Media Library')}
-            ${this.renderNavLink('Playlists')}
-            ${this.renderNavLink('Endpoints')}
-            ${this.renderNavLink('Analytics')}
-            ${this.renderNavLink('Branding')}
-            <p class="nav-section">Administration</p>
-            ${this.renderNavLink('Access Control')}
-            ${this.renderNavLink('Configuration')}
-            ${this.renderNavLink('Diagnostics')}
-            ${this.renderNavLink('Audit Trail')}
+            ${NAV_SECTIONS.map(
+              (section) => html`
+                <p class="nav-section">${section.title}</p>
+                ${section.items.map((item) => this.renderNavButton(item))}
+              `
+            )}
           </nav>
           <div class="sidebar-footer">
             <div class="status" role="status" aria-live="polite">
               <span class="status-indicator" aria-hidden="true"></span>
-              <span class="status-label">Live sync active</span>
+              <span class="status-label">${this.renderSyncStatus()}</span>
             </div>
             <button class="secondary" type="button">Download Manifest</button>
           </div>
@@ -724,10 +750,8 @@ export class UxAdminApp extends LitElement {
         <main class="workspace">
           <header class="workspace-header">
             <div class="header-left">
-              <h1>Dashboard</h1>
-              <p class="subtitle">
-                Monitor the health of your media catalog and embedding endpoints.
-              </p>
+              <h1>${this.pageTitle}</h1>
+              <p class="subtitle">${this.pageSubtitle}</p>
             </div>
             <div class="header-right">
               <label class="search" aria-label="Search admin data">
@@ -737,145 +761,1032 @@ export class UxAdminApp extends LitElement {
               <div class="user" aria-label="Current user">
                 <span class="user-avatar" aria-hidden="true">AD</span>
                 <div class="user-meta">
-                  <span class="user-name">Alex Doe</span>
-                  <span class="user-role">Administrator</span>
+                  <span class="user-name">Admin</span>
+                  <span class="user-role">System Owner</span>
                 </div>
               </div>
             </div>
           </header>
-
-          <section class="stats" aria-label="Key metrics">
-            ${this.stats.map(
-              (stat) => html`
-                <article class="stat-card">
-                  <header>
-                    <span class="stat-label">${stat.label}</span>
-                    <span class="badge ${stat.badge.tone}">${stat.badge.label}</span>
-                  </header>
-                  <p class="stat-value">${stat.value}</p>
-                  <p class="stat-trend ${stat.trend.tone}">${stat.trend.label}</p>
-                </article>
-              `
-            )}
-          </section>
-
-          <section class="content-grid">
-            <article class="panel span-2">
-              <header>
-                <div>
-                  <h2>Playlist Publishing Queue</h2>
-                  <p>Review drafts and publish to embeddable endpoints.</p>
-                </div>
-                <button class="ghost" type="button">View all</button>
-              </header>
-              <table class="table" aria-label="Playlist publishing queue">
-                <thead>
-                  <tr>
-                    <th scope="col">Name</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">Last Updated</th>
-                    <th scope="col">Owner</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${this.playlists.map(
-                    (entry) => html`
-                      <tr>
-                        <td>${entry.name}</td>
-                        <td><span class="badge ${entry.status.tone}">${entry.status.label}</span></td>
-                        <td>${entry.updated}</td>
-                        <td>${entry.owner}</td>
-                      </tr>
-                    `
-                  )}
-                </tbody>
-              </table>
-            </article>
-
-            <article class="panel">
-              <header>
-                <div>
-                  <h2>Endpoint Health</h2>
-                  <p>Track sync latency and embed status.</p>
-                </div>
-                <button class="ghost" type="button">Manage</button>
-              </header>
-              <ul class="list" aria-label="Endpoint health">
-                ${this.endpoints.map(
-                  (endpoint) => html`
-                    <li>
-                      <div>
-                        <p class="list-title">${endpoint.name}</p>
-                        <p class="list-subtitle ${endpoint.tone === 'warning' ? 'warning' : ''}">
-                          ${endpoint.subtitle}
-                        </p>
-                      </div>
-                      <span class="badge ${endpoint.tone}">
-                        ${this.formatBadge(endpoint.tone)}
-                      </span>
-                    </li>
-                  `
-                )}
-              </ul>
-            </article>
-
-            <article class="panel">
-              <header>
-                <div>
-                  <h2>Recent Activity</h2>
-                  <p>Latest actions from the admin team.</p>
-                </div>
-                <button class="ghost" type="button">Export</button>
-              </header>
-              <ul class="timeline" aria-label="Recent admin activity">
-                ${this.timeline.map(
-                  (event) => html`
-                    <li>
-                      <span class="timeline-dot ${event.tone}" aria-hidden="true"></span>
-                      <div>
-                        <p>
-                          <strong>${event.actor}</strong>
-                          ${event.action}
-                          <em>${event.target}</em>.
-                        </p>
-                        <time>${event.timestamp}</time>
-                      </div>
-                    </li>
-                  `
-                )}
-              </ul>
-            </article>
-          </section>
+          ${this.renderActivePage()}
         </main>
       </div>
     `;
   }
 
-  private renderNavLink(label: string, active = false) {
-    const classes = {
-      'nav-link': true,
-      'is-active': active
-    };
-
-    const className = Object.entries(classes)
-      .filter(([, value]) => value)
-      .map(([key]) => key)
-      .join(' ');
-
-    return html`<a class="${className}" href="#">${label}</a>`;
+  private renderActivePage() {
+    switch (this.activePage) {
+      case 'dashboard':
+        return this.renderDashboard();
+      case 'media-library':
+        return this.renderMediaLibrary();
+      case 'playlists':
+        return this.renderPlaylists();
+      case 'endpoints':
+        return this.renderEndpoints();
+      case 'analytics':
+        return this.renderAnalytics();
+      case 'branding':
+        return this.renderBranding();
+      case 'access-control':
+        return this.renderAccessControl();
+      case 'configuration':
+        return this.renderConfiguration();
+      case 'diagnostics':
+        return this.renderDiagnostics();
+      case 'audit-trail':
+        return this.renderAuditTrail();
+      default:
+        return nothing;
+    }
   }
 
-  private formatBadge(tone: Tone): string {
-    switch (tone) {
-      case 'positive':
-        return 'Operational';
-      case 'warning':
-        return 'Degraded';
-      case 'negative':
-        return 'Alert';
-      default:
-        return 'Syncing';
+  private renderDashboard() {
+    const stats = this.getDashboardStats();
+    return html`
+      <section class="stats" aria-label="Key metrics">
+        ${stats.map(
+          (stat) => html`
+            <article class="stat-card">
+              <header>
+                <span class="stat-label">${stat.label}</span>
+                <span class="badge ${stat.badgeTone}">${stat.badgeLabel}</span>
+              </header>
+              <p class="stat-value">${stat.value}</p>
+              <p class="stat-trend ${stat.trendTone}">${stat.trendLabel}</p>
+            </article>
+          `
+        )}
+      </section>
+      <section class="content-grid">
+        <article class="panel span-2">
+          <header>
+            <div>
+              <h2>Playlist Publishing Queue</h2>
+              <p>Review drafts and publish to embeddable endpoints.</p>
+            </div>
+            <button type="button">Review queue</button>
+          </header>
+          ${this.renderPublishingQueue()}
+        </article>
+        <article class="panel">
+          <header>
+            <div>
+              <h2>Endpoint Health</h2>
+              <p>Track sync latency and embed status.</p>
+            </div>
+            <button type="button">Manage endpoints</button>
+          </header>
+          ${this.renderEndpointHealth(this.data.endpoints)}
+        </article>
+        <article class="panel">
+          <header>
+            <div>
+              <h2>Recent Activity</h2>
+              <p>Latest actions from the admin team.</p>
+            </div>
+            <button type="button">Export</button>
+          </header>
+          ${this.renderRecentActivity(this.data.auditTrail)}
+        </article>
+      </section>
+    `;
+  }
+
+  private renderPublishingQueue() {
+    const queue = this.data.playlists
+      .filter((playlist) => playlist.status !== 'published')
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      .slice(0, 6);
+
+    if (!queue.length) {
+      return html`<div class="empty-state" data-testid="queue-empty">
+        <strong>No playlists waiting to publish.</strong>
+        Connect the admin API or import manifests to review publishing tasks.
+      </div>`;
     }
+
+    return html`
+      <table class="table" aria-label="Playlist publishing queue">
+        <thead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">Status</th>
+            <th scope="col">Last Updated</th>
+            <th scope="col">Owner</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${queue.map(
+            (entry) => html`
+              <tr>
+                <td>${entry.name}</td>
+                <td>
+                  <span class="badge ${this.mapPlaylistTone(entry.status)}">
+                    ${this.formatPlaylistStatus(entry.status)}
+                  </span>
+                </td>
+                <td>${entry.updatedAt}</td>
+                <td>${entry.owner}</td>
+              </tr>
+            `
+          )}
+        </tbody>
+      </table>
+    `;
+  }
+
+  private renderEndpointHealth(endpoints: AdminEndpoint[]) {
+    if (!endpoints.length) {
+      return html`<div class="empty-state">
+        <strong>No endpoints connected.</strong>
+        Configure an endpoint to monitor sync health.
+      </div>`;
+    }
+
+    return html`
+      <ul class="list" aria-label="Endpoint health">
+        ${endpoints.map(
+          (endpoint) => html`
+            <li>
+              <div>
+                <p class="list-title">${endpoint.name}</p>
+                <p class="list-subtitle ${endpoint.status === 'degraded' ? 'warning' : ''}">
+                  ${endpoint.lastSync}
+                  ${endpoint.latencyMs
+                    ? html`· ${endpoint.latencyMs} ms latency`
+                    : nothing}
+                </p>
+              </div>
+              <span class="badge ${this.mapEndpointTone(endpoint.status)}">
+                ${this.formatEndpointStatus(endpoint.status)}
+              </span>
+            </li>
+          `
+        )}
+      </ul>
+    `;
+  }
+
+  private renderRecentActivity(events: AuditEvent[]) {
+    if (!events.length) {
+      return html`<div class="empty-state">
+        <strong>No audit activity yet.</strong>
+        Changes made in the admin console will appear here.
+      </div>`;
+    }
+
+    return html`
+      <ul class="timeline" aria-label="Recent admin activity">
+        ${events
+          .slice(0, 6)
+          .map(
+            (event) => html`
+              <li>
+                <span class="timeline-dot ${this.mapAuditTone(event.action)}" aria-hidden="true"></span>
+                <div>
+                  <p>
+                    <strong>${event.actor}</strong>
+                    ${event.action}
+                    <em>${event.target}</em>.
+                  </p>
+                  <time>${event.timestamp}</time>
+                </div>
+              </li>
+            `
+          )}
+      </ul>
+    `;
+  }
+
+  private renderMediaLibrary() {
+    if (!this.data.mediaLibrary.length) {
+      return html`
+        <section class="page-panel" aria-label="Media library empty state">
+          <header>
+            <div>
+              <h2>Media Library</h2>
+              <p>Upload audio or video assets to make them available to playlists.</p>
+            </div>
+            <div class="table-actions">
+              <button type="button">Upload media</button>
+              <button type="button">Sync folders</button>
+            </div>
+          </header>
+          <div class="empty-state">
+            <strong>No media assets found.</strong>
+            Run the ingestion CLI or configure a remote adapter to populate the library.
+          </div>
+        </section>
+      `;
+    }
+
+    return html`
+      <section class="page-panel" aria-label="Media library">
+        <header>
+          <div>
+            <h2>Media Library</h2>
+            <p>${this.data.mediaLibrary.length} assets available for playlist curation.</p>
+          </div>
+          <div class="table-actions">
+            <button type="button">Upload media</button>
+            <button type="button">Sync folders</button>
+          </div>
+        </header>
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Title</th>
+              <th scope="col">Type</th>
+              <th scope="col">Duration</th>
+              <th scope="col">Tags</th>
+              <th scope="col">Status</th>
+              <th scope="col">Last Updated</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${this.data.mediaLibrary.map(
+              (asset) => html`
+                <tr>
+                  <td>${asset.title}</td>
+                  <td>${asset.type}</td>
+                  <td>${this.formatDuration(asset.durationSeconds)}</td>
+                  <td>${asset.tags.join(', ') || '—'}</td>
+                  <td>
+                    <span class="badge ${this.mapAssetTone(asset.status)}">
+                      ${this.formatAssetStatus(asset.status)}
+                    </span>
+                  </td>
+                  <td>${asset.updatedAt}</td>
+                </tr>
+              `
+            )}
+          </tbody>
+        </table>
+      </section>
+    `;
+  }
+
+  private renderPlaylists() {
+    if (!this.data.playlists.length) {
+      return html`
+        <section class="page-panel" aria-label="Playlist overview">
+          <header>
+            <div>
+              <h2>Playlists</h2>
+              <p>Create collections of media assets and publish them to endpoints.</p>
+            </div>
+            <button type="button">Create playlist</button>
+          </header>
+          <div class="empty-state">
+            <strong>No playlists yet.</strong>
+            Create a playlist to start arranging curated media experiences.
+          </div>
+        </section>
+      `;
+    }
+
+    return html`
+      <section class="page-panel" aria-label="Playlists">
+        <header>
+          <div>
+            <h2>Playlists</h2>
+            <p>Track publishing status and endpoint coverage for each playlist.</p>
+          </div>
+          <button type="button">Create playlist</button>
+        </header>
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Playlist</th>
+              <th scope="col">Status</th>
+              <th scope="col">Items</th>
+              <th scope="col">Endpoints</th>
+              <th scope="col">Owner</th>
+              <th scope="col">Last Updated</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${this.data.playlists.map(
+              (playlist) => html`
+                <tr>
+                  <td>${playlist.name}</td>
+                  <td>
+                    <span class="badge ${this.mapPlaylistTone(playlist.status)}">
+                      ${this.formatPlaylistStatus(playlist.status)}
+                    </span>
+                  </td>
+                  <td>${playlist.itemCount}</td>
+                  <td>${playlist.endpointCount}</td>
+                  <td>${playlist.owner}</td>
+                  <td>${playlist.updatedAt}</td>
+                </tr>
+              `
+            )}
+          </tbody>
+        </table>
+      </section>
+    `;
+  }
+
+  private renderEndpoints() {
+    if (!this.data.endpoints.length) {
+      return html`
+        <section class="page-panel" aria-label="Endpoint management">
+          <header>
+            <div>
+              <h2>Endpoints</h2>
+              <p>Provision embeds that stay in sync with your playlists.</p>
+            </div>
+            <button type="button">Add endpoint</button>
+          </header>
+          <div class="empty-state">
+            <strong>No endpoints defined.</strong>
+            Register an endpoint to start embedding the player into external sites.
+          </div>
+        </section>
+      `;
+    }
+
+    return html`
+      <section class="page-panel" aria-label="Endpoints">
+        <header>
+          <div>
+            <h2>Endpoints</h2>
+            <p>Monitor status and deployment targets for each embed endpoint.</p>
+          </div>
+          <button type="button">Add endpoint</button>
+        </header>
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Endpoint</th>
+              <th scope="col">Target</th>
+              <th scope="col">Status</th>
+              <th scope="col">Last Sync</th>
+              <th scope="col">Latency</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${this.data.endpoints.map(
+              (endpoint) => html`
+                <tr>
+                  <td>${endpoint.name}</td>
+                  <td>${endpoint.target}</td>
+                  <td>
+                    <span class="badge ${this.mapEndpointTone(endpoint.status)}">
+                      ${this.formatEndpointStatus(endpoint.status)}
+                    </span>
+                  </td>
+                  <td>${endpoint.lastSync}</td>
+                  <td>${endpoint.latencyMs ? `${endpoint.latencyMs} ms` : '—'}</td>
+                </tr>
+              `
+            )}
+          </tbody>
+        </table>
+      </section>
+    `;
+  }
+
+  private renderAnalytics() {
+    if (!this.data.analytics.length) {
+      return html`
+        <section class="page-panel" aria-label="Analytics overview">
+          <header>
+            <div>
+              <h2>Analytics</h2>
+              <p>Connect an analytics provider to track playback performance.</p>
+            </div>
+            <button type="button">Configure analytics</button>
+          </header>
+          <div class="empty-state">
+            <strong>No analytics connected.</strong>
+            Wire up event forwarding to populate engagement metrics.
+          </div>
+        </section>
+      `;
+    }
+
+    return html`
+      <section class="page-panel" aria-label="Analytics">
+        <header>
+          <div>
+            <h2>Analytics</h2>
+            <p>Playback engagement across connected endpoints.</p>
+          </div>
+          <button type="button">Configure analytics</button>
+        </header>
+        <div class="analytics-grid">
+          ${this.data.analytics.map(
+            (metric) => html`
+              <article class="analytics-card">
+                <h3>${metric.label}</h3>
+                <span class="analytics-value">
+                  ${metric.unit ? `${metric.value}${metric.unit}` : this.numberFormatter.format(metric.value)}
+                </span>
+                <span class="analytics-delta ${metric.delta >= 0 ? 'positive' : 'negative'}">
+                  ${metric.delta >= 0 ? '+' : ''}${metric.delta}% vs last period
+                </span>
+              </article>
+            `
+          )}
+        </div>
+      </section>
+    `;
+  }
+
+  private renderBranding() {
+    const branding = this.data.branding;
+    return html`
+      <section class="page-panel" aria-label="Branding settings">
+        <header>
+          <div>
+            <h2>Branding</h2>
+            <p>Control the appearance of embeds and the admin console.</p>
+          </div>
+          <button type="button">Edit theme</button>
+        </header>
+        <ul class="metadata-list">
+          <li class="metadata-item"><span>Theme</span><span>${branding.theme}</span></li>
+          <li class="metadata-item"><span>Accent color</span><span>${branding.accentColor}</span></li>
+          <li class="metadata-item"><span>Background</span><span>${branding.backgroundColor}</span></li>
+          <li class="metadata-item"><span>Font</span><span>${branding.fontFamily}</span></li>
+          <li class="metadata-item"><span>Token overrides</span><span>${branding.tokenOverrides}</span></li>
+          <li class="metadata-item"><span>Logo</span><span>${branding.logo ?? 'Not configured'}</span></li>
+        </ul>
+      </section>
+    `;
+  }
+
+  private renderAccessControl() {
+    if (!this.data.users.length) {
+      return html`
+        <section class="page-panel" aria-label="Access control">
+          <header>
+            <div>
+              <h2>Access Control</h2>
+              <p>Invite collaborators and manage permissions.</p>
+            </div>
+            <button type="button">Invite user</button>
+          </header>
+          <div class="empty-state">
+            <strong>No users provisioned.</strong>
+            Invite collaborators to administrate media and endpoints.
+          </div>
+        </section>
+      `;
+    }
+
+    return html`
+      <section class="page-panel" aria-label="Access control">
+        <header>
+          <div>
+            <h2>Access Control</h2>
+            <p>Manage user roles and monitor access status.</p>
+          </div>
+          <button type="button">Invite user</button>
+        </header>
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Email</th>
+              <th scope="col">Role</th>
+              <th scope="col">Status</th>
+              <th scope="col">Last Active</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${this.data.users.map(
+              (user) => html`
+                <tr>
+                  <td>${user.name}</td>
+                  <td>${user.email}</td>
+                  <td>${this.formatUserRole(user.role)}</td>
+                  <td>
+                    <span class="badge ${this.mapUserTone(user.status)}">
+                      ${this.formatUserStatus(user.status)}
+                    </span>
+                  </td>
+                  <td>${user.lastActive}</td>
+                </tr>
+              `
+            )}
+          </tbody>
+        </table>
+      </section>
+    `;
+  }
+
+  private renderConfiguration() {
+    if (!this.data.configuration.length) {
+      return html`
+        <section class="page-panel" aria-label="Configuration overview">
+          <header>
+            <div>
+              <h2>Configuration</h2>
+              <p>Review runtime settings provided to the player and admin services.</p>
+            </div>
+            <button type="button">Load config</button>
+          </header>
+          <div class="empty-state">
+            <strong>No configuration loaded.</strong>
+            Supply uxplayer.config.json or connect to the configuration API.
+          </div>
+        </section>
+      `;
+    }
+
+    return html`
+      <section class="page-panel" aria-label="Configuration">
+        <header>
+          <div>
+            <h2>Configuration</h2>
+            <p>Current runtime configuration keys shared with embeds.</p>
+          </div>
+          <button type="button">Load config</button>
+        </header>
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Key</th>
+              <th scope="col">Value</th>
+              <th scope="col">Description</th>
+              <th scope="col">Mutable</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${this.data.configuration.map(
+              (entry) => html`
+                <tr>
+                  <td>${entry.key}</td>
+                  <td>${entry.value}</td>
+                  <td>${entry.description}</td>
+                  <td>${entry.mutable ? 'Yes' : 'No'}</td>
+                </tr>
+              `
+            )}
+          </tbody>
+        </table>
+      </section>
+    `;
+  }
+
+  private renderDiagnostics() {
+    if (!this.data.diagnostics.length) {
+      return html`
+        <section class="page-panel" aria-label="Diagnostics">
+          <header>
+            <div>
+              <h2>Diagnostics</h2>
+              <p>Run health checks to verify connectivity and manifest integrity.</p>
+            </div>
+            <button type="button">Run diagnostics</button>
+          </header>
+          <div class="empty-state">
+            <strong>No diagnostics executed.</strong>
+            Execute the diagnostic suite to view system health.
+          </div>
+        </section>
+      `;
+    }
+
+    return html`
+      <section class="page-panel" aria-label="Diagnostics">
+        <header>
+          <div>
+            <h2>Diagnostics</h2>
+            <p>Latest health check results for player services.</p>
+          </div>
+          <button type="button">Run diagnostics</button>
+        </header>
+        <ul class="list">
+          ${this.data.diagnostics.map((check) => this.renderDiagnosticCheck(check))}
+        </ul>
+      </section>
+    `;
+  }
+
+  private renderAuditTrail() {
+    if (!this.data.auditTrail.length) {
+      return html`
+        <section class="page-panel" aria-label="Audit trail">
+          <header>
+            <div>
+              <h2>Audit Trail</h2>
+              <p>Review who changed playlists, endpoints, or configuration.</p>
+            </div>
+            <button type="button">Export</button>
+          </header>
+          <div class="empty-state">
+            <strong>No activity recorded.</strong>
+            Actions performed in the admin console will be logged here.
+          </div>
+        </section>
+      `;
+    }
+
+    return html`
+      <section class="page-panel" aria-label="Audit trail">
+        <header>
+          <div>
+            <h2>Audit Trail</h2>
+            <p>Chronological log of administrative changes.</p>
+          </div>
+          <button type="button">Export</button>
+        </header>
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Actor</th>
+              <th scope="col">Action</th>
+              <th scope="col">Target</th>
+              <th scope="col">Timestamp</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${this.data.auditTrail.map(
+              (event) => html`
+                <tr>
+                  <td>${event.actor}</td>
+                  <td>${event.action}</td>
+                  <td>${event.target}</td>
+                  <td>${event.timestamp}</td>
+                </tr>
+              `
+            )}
+          </tbody>
+        </table>
+      </section>
+    `;
+  }
+
+  private renderDiagnosticCheck(check: DiagnosticCheck) {
+    return html`
+      <li>
+        <div>
+          <p class="list-title">${check.name}</p>
+          <p class="list-subtitle">${check.description}</p>
+          <p class="list-subtitle">Last run: ${check.lastRun}</p>
+        </div>
+        <span class="badge ${this.mapDiagnosticTone(check.status)}">
+          ${this.formatDiagnosticStatus(check.status)}
+        </span>
+      </li>
+    `;
+  }
+
+  private renderNavButton(item: NavItem) {
+    const isActive = this.activePage === item.page;
+    return html`
+      <button
+        class="nav-button ${isActive ? 'is-active' : ''}"
+        type="button"
+        data-page="${item.page}"
+        @click=${() => this.handleNavigation(item.page)}
+      >
+        ${item.label}
+      </button>
+    `;
+  }
+
+  private handleNavigation(page: AdminPage) {
+    this.activePage = page;
+  }
+
+  private get pageTitle(): string {
+    switch (this.activePage) {
+      case 'dashboard':
+        return 'Dashboard';
+      case 'media-library':
+        return 'Media Library';
+      case 'playlists':
+        return 'Playlists';
+      case 'endpoints':
+        return 'Endpoints';
+      case 'analytics':
+        return 'Analytics';
+      case 'branding':
+        return 'Branding';
+      case 'access-control':
+        return 'Access Control';
+      case 'configuration':
+        return 'Configuration';
+      case 'diagnostics':
+        return 'Diagnostics';
+      case 'audit-trail':
+        return 'Audit Trail';
+      default:
+        return 'Dashboard';
+    }
+  }
+
+  private get pageSubtitle(): string {
+    switch (this.activePage) {
+      case 'dashboard':
+        return 'Monitor the health of your media catalog and embedding endpoints.';
+      case 'media-library':
+        return 'Ingest audio and video assets ready for playlist publishing.';
+      case 'playlists':
+        return 'Orchestrate curated experiences across devices and endpoints.';
+      case 'endpoints':
+        return 'Manage embed targets and ensure deployments stay in sync.';
+      case 'analytics':
+        return 'Review engagement signals and playback diagnostics.';
+      case 'branding':
+        return 'Align player visuals with your organization’s design system.';
+      case 'access-control':
+        return 'Provision roles and enforce principle of least privilege.';
+      case 'configuration':
+        return 'Audit configuration keys shared with the player runtime.';
+      case 'diagnostics':
+        return 'Verify infrastructure health and manifest integrity.';
+      case 'audit-trail':
+        return 'Trace administrative changes for compliance and rollback.';
+      default:
+        return '';
+    }
+  }
+
+  private getDashboardStats() {
+    const metrics = this.data.metrics;
+    const assetBadge = metrics.mediaAssetsNew > 0 ? `+${metrics.mediaAssetsNew} new` : 'Awaiting ingest';
+    const assetTrend = metrics.mediaAssets > 0 ? `${metrics.mediaAssetsNew} added this week` : 'No assets scanned yet';
+
+    const playlistBadge = metrics.playlistsPending > 0 ? `${metrics.playlistsPending} pending` : 'No pending items';
+    const playlistTrend = metrics.publishedPlaylists > 0 ? 'Playlists live' : 'Create your first playlist';
+
+    const endpointBadge = metrics.endpointsPending > 0 ? `${metrics.endpointsPending} pending` : 'All endpoints synced';
+    const endpointTrend = metrics.activeEndpoints > 0 ? 'Endpoints operational' : 'Connect your first endpoint';
+
+    const errorTrend = metrics.errorDelta === 0 ? 'Stable' : `${metrics.errorDelta > 0 ? '+' : ''}${metrics.errorDelta} vs yesterday`;
+
+    return [
+      {
+        label: 'Total Media Assets',
+        value: this.numberFormatter.format(metrics.mediaAssets),
+        badgeLabel: assetBadge,
+        badgeTone: metrics.mediaAssetsNew > 0 ? 'neutral' : 'warning',
+        trendLabel: assetTrend,
+        trendTone: metrics.mediaAssets > 0 ? 'positive' : 'warning'
+      },
+      {
+        label: 'Published Playlists',
+        value: this.numberFormatter.format(metrics.publishedPlaylists),
+        badgeLabel: playlistBadge,
+        badgeTone: metrics.playlistsPending > 0 ? 'warning' : 'positive',
+        trendLabel: playlistTrend,
+        trendTone: metrics.publishedPlaylists > 0 ? 'positive' : 'warning'
+      },
+      {
+        label: 'Active Endpoints',
+        value: this.numberFormatter.format(metrics.activeEndpoints),
+        badgeLabel: endpointBadge,
+        badgeTone: metrics.endpointsPending > 0 ? 'warning' : 'positive',
+        trendLabel: endpointTrend,
+        trendTone: metrics.activeEndpoints > 0 ? 'positive' : 'warning'
+      },
+      {
+        label: 'Playback Errors',
+        value: this.numberFormatter.format(metrics.playbackErrors),
+        badgeLabel: errorTrend,
+        badgeTone: metrics.playbackErrors > 0 ? 'negative' : 'neutral',
+        trendLabel: metrics.playbackErrors > 0 ? 'Investigate error logs' : 'No playback errors recorded',
+        trendTone: metrics.playbackErrors > 0 ? 'negative' : 'positive'
+      }
+    ];
+  }
+
+  private mergeAdminData(value: AdminData | undefined): AdminData {
+    const base = createEmptyAdminData();
+    if (!value) {
+      return base;
+    }
+
+    return {
+      ...base,
+      ...value,
+      metrics: {
+        ...base.metrics,
+        ...value.metrics
+      },
+      branding: {
+        ...base.branding,
+        ...value.branding
+      },
+      mediaLibrary: value.mediaLibrary ?? base.mediaLibrary,
+      playlists: value.playlists ?? base.playlists,
+      endpoints: value.endpoints ?? base.endpoints,
+      analytics: value.analytics ?? base.analytics,
+      users: value.users ?? base.users,
+      configuration: value.configuration ?? base.configuration,
+      diagnostics: value.diagnostics ?? base.diagnostics,
+      auditTrail: value.auditTrail ?? base.auditTrail
+    };
+  }
+
+  private bootstrapFromWindow() {
+    const globalContext = window as typeof window & { __UX_ADMIN_DATA__?: Partial<AdminData> };
+    if (globalContext.__UX_ADMIN_DATA__) {
+      this.data = globalContext.__UX_ADMIN_DATA__ as AdminData;
+    }
+  }
+
+  private mapPlaylistTone(status: AdminPlaylist['status']): Tone {
+    switch (status) {
+      case 'published':
+        return 'positive';
+      case 'scheduled':
+        return 'neutral';
+      case 'draft':
+        return 'neutral';
+      case 'needs_media':
+        return 'warning';
+      case 'archived':
+        return 'negative';
+      default:
+        return 'neutral';
+    }
+  }
+
+  private formatPlaylistStatus(status: AdminPlaylist['status']): string {
+    switch (status) {
+      case 'published':
+        return 'Published';
+      case 'scheduled':
+        return 'Scheduled';
+      case 'draft':
+        return 'Draft';
+      case 'needs_media':
+        return 'Needs media';
+      case 'archived':
+        return 'Archived';
+      default:
+        return status;
+    }
+  }
+
+  private mapEndpointTone(status: AdminEndpoint['status']): Tone {
+    switch (status) {
+      case 'operational':
+        return 'positive';
+      case 'degraded':
+        return 'warning';
+      case 'pending':
+        return 'neutral';
+      case 'disabled':
+        return 'negative';
+      default:
+        return 'neutral';
+    }
+  }
+
+  private formatEndpointStatus(status: AdminEndpoint['status']): string {
+    switch (status) {
+      case 'operational':
+        return 'Operational';
+      case 'degraded':
+        return 'Degraded';
+      case 'pending':
+        return 'Pending';
+      case 'disabled':
+        return 'Disabled';
+      default:
+        return status;
+    }
+  }
+
+  private mapAuditTone(action: string): Tone {
+    if (/deleted|removed|revoked|rollback/i.test(action)) {
+      return 'negative';
+    }
+
+    if (/flagged|warning/i.test(action)) {
+      return 'warning';
+    }
+
+    if (/published|created|added/i.test(action)) {
+      return 'positive';
+    }
+
+    return 'neutral';
+  }
+
+  private formatDuration(duration: number): string {
+    if (!Number.isFinite(duration) || duration <= 0) {
+      return '—';
+    }
+
+    const minutes = Math.floor(duration / 60);
+    const seconds = Math.floor(duration % 60)
+      .toString()
+      .padStart(2, '0');
+    return `${minutes}:${seconds}`;
+  }
+
+  private mapAssetTone(status: string): Tone {
+    switch (status) {
+      case 'ready':
+        return 'positive';
+      case 'processing':
+        return 'neutral';
+      case 'error':
+        return 'negative';
+      default:
+        return 'neutral';
+    }
+  }
+
+  private formatAssetStatus(status: string): string {
+    switch (status) {
+      case 'ready':
+        return 'Ready';
+      case 'processing':
+        return 'Processing';
+      case 'error':
+        return 'Error';
+      default:
+        return status;
+    }
+  }
+
+  private formatUserRole(role: string): string {
+    switch (role) {
+      case 'owner':
+        return 'Owner';
+      case 'admin':
+        return 'Admin';
+      case 'editor':
+        return 'Editor';
+      case 'viewer':
+        return 'Viewer';
+      default:
+        return role;
+    }
+  }
+
+  private mapUserTone(status: string): Tone {
+    switch (status) {
+      case 'active':
+        return 'positive';
+      case 'invited':
+        return 'neutral';
+      case 'suspended':
+        return 'negative';
+      default:
+        return 'neutral';
+    }
+  }
+
+  private formatUserStatus(status: string): string {
+    switch (status) {
+      case 'active':
+        return 'Active';
+      case 'invited':
+        return 'Invited';
+      case 'suspended':
+        return 'Suspended';
+      default:
+        return status;
+    }
+  }
+
+  private mapDiagnosticTone(status: DiagnosticCheck['status']): Tone {
+    switch (status) {
+      case 'pass':
+        return 'positive';
+      case 'warn':
+        return 'warning';
+      case 'fail':
+        return 'negative';
+      default:
+        return 'neutral';
+    }
+  }
+
+  private formatDiagnosticStatus(status: DiagnosticCheck['status']): string {
+    switch (status) {
+      case 'pass':
+        return 'Pass';
+      case 'warn':
+        return 'Warn';
+      case 'fail':
+        return 'Fail';
+      default:
+        return status;
+    }
+  }
+
+  private renderSyncStatus(): string {
+    if (this.data.metrics.activeEndpoints === 0) {
+      return 'Awaiting first sync';
+    }
+
+    if (this.data.metrics.endpointsPending > 0) {
+      return `${this.data.metrics.endpointsPending} endpoints pending approval`;
+    }
+
+    return 'Live sync active';
   }
 }
 

@@ -15,14 +15,17 @@ Embeddable multimedia library designed to deliver audio and video playback insid
 ```
 
 ## Admin Console Prototype
-The Lit + Vite-based admin dashboard mirrors the layout defined in [`docs/demo`](docs/demo) and will evolve into the authenticated management surface.
+The Lit + Vite-based admin dashboard now implements the full navigation shell (Dashboard, Media Library, Playlists, Endpoints, Analytics, Branding, Access Control, Configuration, Diagnostics, and Audit Trail) with empty states ready for live data.
 
 ```bash
 npm install
 npm run dev
 ```
 
-The dev server hosts `index.html`, which mounts the `<ux-admin-app>` Web Component showcasing the planned dashboard shell. It now binds to `0.0.0.0:2222` for container and LAN access.
+The dev server hosts `index.html`, which mounts the `<ux-admin-app>` Web Component showcasing the multi-page admin experience. It binds to `0.0.0.0:2222` for container and LAN access.
+
+### Data bootstrapping
+Provide runtime data by assigning the `data` property on `<ux-admin-app>` or by defining `window.__UX_ADMIN_DATA__` before the component upgrades. The structure must match `AdminData` in [`src/admin/types.ts`](src/admin/types.ts). When no data is provided the UI surfaces zeroed metrics and guidance for connecting the live admin API.
 
 ## Configuration
 | Setting | Default | Description |
